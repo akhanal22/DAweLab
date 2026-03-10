@@ -1,7 +1,7 @@
 I need to manually curate the genome because the size of chromosome 1 is shorter and chromosome 2is longer for J702 and B73D4. When aligned against B73D5 reference, some parts of chromosom0e 
 2 are perfectly syntenic to chromosome 1 of reference. Also, the extended part is at the junction of raw contigs arrangement. The coverega is also low in the junction region.
 
-For J702:
+1. For J702:
 #!/bin/bash
 #SBATCH --job-name=genome_genome
 #SBATCH --partition=batch
@@ -41,6 +41,51 @@ samtools faidx -r keep.list "$FA" >> "$OUT"
 rm keep.list
 
 echo "Modified FASTA written to $OUT"
+2. For B73D2. Chromosome 1 is longer (310Mb) , i foundthat contig ptg000025l has some parts that align to chr2 on refernce genome and junction have reduction in read depth so i am breaking up contgs. 
+#!/bin/bash
+#SBATCH --job-name=genome_genome
+#SBATCH --partition=batch
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --time=10:00:00
+#SBATCH --mem=100G
+#SBATCH --output=%x.%A_%a.out
+#SBATCH --error=%x.%A_%a.err
+#SBATCH --mail-user=ak18787@uga.edu
+#SBATCH --mail-type=END,FAIL
+
+# ---- conda ----
+source ~/ENTER/etc/profile.d/conda.sh
+conda activate samtools
+
+FA=B73D2_v3.contig.fa
+OUT=B73D2_v3.contig_modified.fa
+
+set -euo pipefail
+
+# Obtain contig lengths from the FAI index
+LEN016=$(awk '$1=="ptg000025l"{print $2}' "$FA.fai")
+#LEN008=$(awk '$1=="ptg000008l"{print $2}' "$FA.fai")
+
+# 1. Split ptg000016l at 23,700,225 bp
+samtools faidx "$FA" ptg000008l:1-1659729 \
+  | sed 's/^>ptg000008l/>ptg000008la/' > "$OUT"
+samtools faidx "$FA" ptg000008l:1659730-"$LEN016" \
+  | sed 's/^>ptg000008l/>ptg000008lb/' >> "$OUT"
+
+# 2. Split ptg000008l at 5,377,852 bp
+#samtools faidx "$FA" ptg000008l:1-5377852 \
+  | sed 's/^>ptg000008l/>ptg000008la/' >> "$OUT"
+#samtools faidx "$FA" ptg000008l:5377853-"$LEN008" \
+  | sed 's/^>ptg000008l/>ptg000008lb/' >> "$OUT"
+
+# 3. Extract all other contigs except the originals
+cut -f1 "$FA.fai" | grep -Ev '^(ptg000016l|ptg000008l)$' > keep.list
+samtools faidx -r keep.list "$FA" >> "$OUT"
+rm keep.list
+
+echo "Modified FASTA written to $OUT"
+
 
 
 
