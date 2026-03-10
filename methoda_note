@@ -20,7 +20,7 @@ set -euo pipefail
 FA=J702_v3.contig.fa
 OUT=J702_v3.contig_modified.fa
 
-# 1. Split ptg000016l at 23 700 225 bp
+# 1. Split ptg000016l at 23 700 225 bp. note that cutoff starts at 122094  23700222. I just did three bp extra on right end.
 samtools faidx "$FA" ptg000016l:1-23700225 \
   | sed 's/^>ptg000016l/>ptg000016la/' > "$OUT"
 samtools faidx "$FA" ptg000016l:23700226-71528896 \
