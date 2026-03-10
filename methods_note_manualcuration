@@ -3,12 +3,12 @@ I need to manually curate the genome because the size of chromosome 1 is shorter
 
 1. For J702:
 #!/bin/bash
-#SBATCH --job-name=genome_genome
+#SBATCH --job-name=j702
 #SBATCH --partition=batch
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
-#SBATCH --time=100:00:00
-#SBATCH --mem=400G
+#SBATCH --time=10:00:00
+#SBATCH --mem=100G
 #SBATCH --output=%x.%A_%a.out
 #SBATCH --error=%x.%A_%a.err
 #SBATCH --mail-user=ak18787@uga.edu
@@ -21,28 +21,28 @@ FA=J702_v3.contig.fa
 OUT=J702_v3.contig_modified.fa
 
 # 1. Split ptg000016l at 23 700 225 bp. note that cutoff starts at 122094  23700222. I just did three bp extra on right end.
-samtools faidx "$FA" ptg000016l:1-23700225 \
+samtools faidx "$FA" ptg000016l:0-23700222 \
   | sed 's/^>ptg000016l/>ptg000016la/' > "$OUT"
-samtools faidx "$FA" ptg000016l:23700226-71528896 \
+samtools faidx "$FA" ptg000016l:23700223-71528896 \
   | sed 's/^>ptg000016l/>ptg000016lb/' >> "$OUT"
 
 # 2. Split ptg000016l at 5 377 852 bp (adjust contig name if needed)
-samtools faidx "$FA" ptg000016l:1-5377852 \
-  | sed 's/^>ptg000016l/>ptg000016la2/' >> "$OUT"
-samtools faidx "$FA" ptg000016l:5377853-71528896 \
-  | sed 's/^>ptg000016l/>ptg000016lb2/' >> "$OUT"
+samtools faidx "$FA" ptg000008l:1-5377840 \
+  | sed 's/^>ptg000008l/>ptg000008la/' >> "$OUT"
+samtools faidx "$FA" ptg000008l:5377841-200930298 \
+  | sed 's/^>ptg000008l/>ptg000008lb/' >> "$OUT"
 
 # 3. Extract all other contigs except the original ptg000016l
 #    (build a list of contigs to keep from the FAI index)
-cut -f1 "$FA.fai" | grep -v '^ptg000016l$' > keep.list
+cut -f1 "$FA.fai" | grep -Ev '^(ptg000016l|ptg000008l)$' > keep.list
 samtools faidx -r keep.list "$FA" >> "$OUT"
 
 # Clean up the temporary list
 rm keep.list
 
-echo "Modified FASTA written to $OUT"
+
 2. For B73D2. Chromosome 1 is longer (310Mb) , i foundthat contig ptg000025l has some parts that align to chr2 on refernce genome and junction have reduction in read depth so i am breaking up contgs. 
-#!/bin/bash
+
 #SBATCH --job-name=genome_genome
 #SBATCH --partition=batch
 #SBATCH --ntasks=1
@@ -54,7 +54,6 @@ echo "Modified FASTA written to $OUT"
 #SBATCH --mail-user=ak18787@uga.edu
 #SBATCH --mail-type=END,FAIL
 
-# ---- conda ----
 source ~/ENTER/etc/profile.d/conda.sh
 conda activate samtools
 
@@ -63,28 +62,27 @@ OUT=B73D2_v3.contig_modified.fa
 
 set -euo pipefail
 
-# Obtain contig lengths from the FAI index
-LEN016=$(awk '$1=="ptg000025l"{print $2}' "$FA.fai")
-#LEN008=$(awk '$1=="ptg000008l"{print $2}' "$FA.fai")
+# ensure index exists
+samtools faidx "$FA"
 
-# 1. Split ptg000016l at 23,700,225 bp
-samtools faidx "$FA" ptg000008l:1-1659729 \
-  | sed 's/^>ptg000008l/>ptg000008la/' > "$OUT"
-samtools faidx "$FA" ptg000008l:1659730-"$LEN016" \
-  | sed 's/^>ptg000008l/>ptg000008lb/' >> "$OUT"
+# get contig length
+LEN025=$(awk '$1=="ptg000025l"{print $2}' "$FA.fai")
 
-# 2. Split ptg000008l at 5,377,852 bp
-#samtools faidx "$FA" ptg000008l:1-5377852 \
-  | sed 's/^>ptg000008l/>ptg000008la/' >> "$OUT"
-#samtools faidx "$FA" ptg000008l:5377853-"$LEN008" \
-  | sed 's/^>ptg000008l/>ptg000008lb/' >> "$OUT"
+# split contig
+samtools faidx "$FA" ptg000025l:1-1659726 \
+ | sed 's/^>ptg000025l/>ptg000025la/' > "$OUT"
 
-# 3. Extract all other contigs except the originals
-cut -f1 "$FA.fai" | grep -Ev '^(ptg000016l|ptg000008l)$' > keep.list
+samtools faidx "$FA" ptg000025l:1659727-"$LEN025" \
+ | sed 's/^>ptg000025l/>ptg000025lb/' >> "$OUT"
+
+# keep all other contigs
+cut -f1 "$FA.fai" | grep -Ev '^ptg000025l$' > keep.list
 samtools faidx -r keep.list "$FA" >> "$OUT"
+
 rm keep.list
 
 echo "Modified FASTA written to $OUT"
+
 3) For B73d7c
 #!/bin/bash
 #SBATCH --job-name=genome_genome
@@ -110,10 +108,10 @@ set -euo pipefail
 LEN=$(awk '$1=="ptg000002l"{print $2}' "$FA.fai")
 
 # split contig
-samtools faidx "$FA" ptg000002l:1-5352616 \
+samtools faidx "$FA" ptg000002l:1-5352613 \
   | sed 's/^>ptg000002l/>ptg000002la/' > "$OUT"
 
-samtools faidx "$FA" ptg000002l:5352617-$LEN \
+samtools faidx "$FA" ptg000002l:5352614-$LEN \
   | sed 's/^>ptg000002l/>ptg000002lb/' >> "$OUT"
 
 # keep all other contigs
@@ -124,7 +122,115 @@ rm keep.list
 echo "Modified FASTA written to $OUT"
 4) For B73d1
 
+#!/bin/bash
+#SBATCH --job-name=b73d1
+#SBATCH --partition=batch
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --time=10:00:00
+#SBATCH --mem=100G
+#SBATCH --output=%x.%A_%a.out
+#SBATCH --error=%x.%A_%a.err
+#SBATCH --mail-user=ak18787@uga.edu
+#SBATCH --mail-type=END,FAIL
 
+# ---- conda ----
+source ~/ENTER/etc/profile.d/conda.sh
+conda activate samtools
+set -euo pipefail
+FA="B73D1_v3.contig.fa"
+OUT="B73D1_v3_modified.contig.fa"
+
+# index fasta if needed
+samtools faidx "$FA"
+
+# get contig lengths from .fai
+LEN020=$(awk '$1=="ptg000020l"{print $2}' "$FA.fai")
+LEN014=$(awk '$1=="ptg000014l"{print $2}' "$FA.fai")
+
+echo "ptg000020l length = $LEN020"
+echo "ptg000014l length = $LEN014"
+
+# 1) keep all contigs except the ones being replaced
+awk '
+BEGIN{skip=0}
+/^>/{
+    name=$1
+    sub(/^>/,"",name)
+    if(name=="ptg000020l" || name=="ptg000014l") skip=1
+    else skip=0
+}
+!skip
+' "$FA" > kept_contigs.fa
+
+# 2) split ptg000020l into a, b, c
+samtools faidx "$FA" ptg000020l:0-1022450 \
+  | sed '1s/.*/>ptg000020la/' > ptg000020la.fa
+
+samtools faidx "$FA" ptg000020l:1022451-2524178 \
+  | sed '1s/.*/>ptg000020lb/' > ptg000020lb.fa
+
+samtools faidx "$FA" ptg000020l:2524179-$LEN020 \
+  | sed '1s/.*/>ptg000020lc/' > ptg000020lc.fa
+
+# 3) split ptg000014l into a, b
+samtools faidx "$FA" ptg000014l:0-9274519 \
+  | sed '1s/.*/>ptg000014la/' > ptg000014la.fa
+
+samtools faidx "$FA" ptg000014l:9274520-$LEN014 \
+  | sed '1s/.*/>ptg000014lb/' > ptg000014lb.fa
+
+# 4) combine: unchanged contigs + replacement pieces
+cat kept_contigs.fa \
+    ptg000020la.fa ptg000020lb.fa ptg000020lc.fa \
+    ptg000014la.fa ptg000014lb.fa > "$OUT"
+
+# 5) index final fasta
+samtools faidx "$OUT"
+
+echo "Done. Output fasta: $OUT"
+
+5) For B73D4
+#!/bin/bash
+#SBATCH --job-name=genome_genome
+#SBATCH --partition=batch
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --time=10:00:00
+#SBATCH --mem=100G
+#SBATCH --output=%x.%A_%a.out
+#SBATCH --error=%x.%A_%a.err
+#SBATCH --mail-user=ak18787@uga.edu
+#SBATCH --mail-type=END,FAIL
+
+source ~/ENTER/etc/profile.d/conda.sh
+conda activate samtools
+
+FA=B73D4_v3.contig.fa
+OUT=B73D4_v3.contig_modified.fa
+
+set -euo pipefail
+
+# ensure index exists
+samtools faidx "$FA"
+
+# get contig length
+LEN025=$(awk '$1=="ptg000004l"{print $2}' "$FA.fai")
+
+# split contig
+samtools faidx "$FA" ptg000004l:1-195746274 \
+ | sed 's/^>ptg000004l/>ptg000004la/' > "$OUT"
+
+samtools faidx "$FA" ptg000004l:195746275-"$LEN025" \
+ | sed 's/^>ptg000004l/>ptg000004lb/' >> "$OUT"
+
+# keep all other contigs
+cut -f1 "$FA.fai" | grep -Ev '^ptg000004l$' > keep.list
+samtools faidx -r keep.list "$FA" >> "$OUT"
+
+rm keep.list
+samtools faidx "$OUT"
+echo "Modified FASTA written to $OUT"
 
 
 
