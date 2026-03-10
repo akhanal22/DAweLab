@@ -85,6 +85,44 @@ samtools faidx -r keep.list "$FA" >> "$OUT"
 rm keep.list
 
 echo "Modified FASTA written to $OUT"
+3) For B73d7c
+#!/bin/bash
+#SBATCH --job-name=genome_genome
+#SBATCH --partition=batch
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --time=10:00:00
+#SBATCH --mem=100G
+#SBATCH --output=%x.%A_%a.out
+#SBATCH --error=%x.%A_%a.err
+#SBATCH --mail-user=ak18787@uga.edu
+#SBATCH --mail-type=END,FAIL
+
+# ---- conda ----
+source ~/ENTER/etc/profile.d/conda.sh
+conda activate samtools
+
+FA=B73D7c_v3.contig.fa
+OUT=B73D7c_v3.contig_modified.fa
+
+set -euo pipefail
+# get contig length automatically
+LEN=$(awk '$1=="ptg000002l"{print $2}' "$FA.fai")
+
+# split contig
+samtools faidx "$FA" ptg000002l:1-5352616 \
+  | sed 's/^>ptg000002l/>ptg000002la/' > "$OUT"
+
+samtools faidx "$FA" ptg000002l:5352617-$LEN \
+  | sed 's/^>ptg000002l/>ptg000002lb/' >> "$OUT"
+
+# keep all other contigs
+cut -f1 "$FA.fai" | grep -v '^ptg000002l$' > keep.list
+samtools faidx -r keep.list "$FA" >> "$OUT"
+
+rm keep.list
+echo "Modified FASTA written to $OUT"
+4) For B73d1
 
 
 
