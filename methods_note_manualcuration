@@ -2,6 +2,7 @@ I need to manually curate the genome because the size of chromosome 1 is shorter
 2 are perfectly syntenic to chromosome 1 of reference. Also, the extended part is at the junction of raw contigs arrangement. The coverega is also low in the junction region.
 
 1. For J702:
+```
 #!/bin/bash
 #SBATCH --job-name=j702
 #SBATCH --partition=batch
@@ -39,10 +40,10 @@ samtools faidx -r keep.list "$FA" >> "$OUT"
 
 # Clean up the temporary list
 rm keep.list
-
+```
 
 2. For B73D2. Chromosome 1 is longer (310Mb) , i foundthat contig ptg000025l has some parts that align to chr2 on refernce genome and junction have reduction in read depth so i am breaking up contgs. 
-
+```
 #SBATCH --job-name=genome_genome
 #SBATCH --partition=batch
 #SBATCH --ntasks=1
@@ -82,8 +83,9 @@ samtools faidx -r keep.list "$FA" >> "$OUT"
 rm keep.list
 
 echo "Modified FASTA written to $OUT"
-
+```
 3) For B73d7c
+```
 #!/bin/bash
 #SBATCH --job-name=genome_genome
 #SBATCH --partition=batch
@@ -120,8 +122,9 @@ samtools faidx -r keep.list "$FA" >> "$OUT"
 
 rm keep.list
 echo "Modified FASTA written to $OUT"
+```
 4) For B73d1
-
+```
 #!/bin/bash
 #SBATCH --job-name=b73d1
 #SBATCH --partition=batch
@@ -189,8 +192,9 @@ cat kept_contigs.fa \
 samtools faidx "$OUT"
 
 echo "Done. Output fasta: $OUT"
-
+```
 5) For B73D4
+```
 #!/bin/bash
 #SBATCH --job-name=genome_genome
 #SBATCH --partition=batch
@@ -231,6 +235,39 @@ samtools faidx -r keep.list "$FA" >> "$OUT"
 rm keep.list
 samtools faidx "$OUT"
 echo "Modified FASTA written to $OUT"
+```
+After breaking up the contig, I reran ragtag using B73D5 as reference. However, with that still B73D1 had not resolved issue for chromsome 7 longer. This could be because the repeat 
+length is shorter in NAM version. So, I first did scaffolding for J792 using B73_V5 genome and used J702 for scaffolding others
+```
+#!/bin/bash
+#SBATCH --job-name=d10
+#SBATCH --partition=batch
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --time=72:00:00
+#SBATCH --mem=500G
+#SBATCH --array=1-1
+#SBATCH --output=%x.%A_%a.out
+#SBATCH --error=%x.%A_%a.err
+#SBATCH --mail-user=ak18787@uga.edu
+#SBATCH --mail-type=END,FAIL
+
+source ~/ENTER/etc/profile.d/conda.sh
+conda activate base
+
+set -euo pipefail
+
+# sample name
+file=$(sed -n "${SLURM_ARRAY_TASK_ID}p" d10.lst | tr -d '\r' | xargs)
+[[ -n "$file" ]] || { echo "ERROR: empty sample name for task $SLURM_ARRAY_TASK_ID"; exit 1; }
+
+# output directory
+outdir="${file}_v3_modified_ragtag_re"
+mkdir -p "$outdir"
+
+# run ragtag
+ragtag.py scaffold J702_v3_modified_ragtag/ragtag.scaffold.fasta raw_genome/${file}_v3.contig_modified.fa -o "$outdir"
+```
 
 
 
