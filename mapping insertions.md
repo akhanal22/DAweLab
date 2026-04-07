@@ -1,8 +1,8 @@
 This is for intersecting vcf insertions with reference to get flanking region 
-``
+```
 bcftools query -f '%CHROM\t%POS\t%ID\t%INFO/SVTYPE\t%INFO/SVLEN\n' B73D7B_ragtag.vcf | awk 'BEGIN{OFS="\t"} $4=="INS" {s=$2-2001; if(s<0)s=0; e=$2+2000; print $1,s,e,$3,$5}' > b73d7Binsertion_flanks_2kb.bed
-``
-After this I ran the minimap to get paf file with primary and secondary alignment
+```
+After this I used bedtools getfasta to get fasta sequence for those coordinate and ran the minimap to get paf file with primary and secondary alignment
 
 ```
 #!/bin/bash
