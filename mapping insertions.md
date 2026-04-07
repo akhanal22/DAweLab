@@ -152,7 +152,7 @@ python paf_target_insertions_to_bed.py your.paf target_insertions.bed
 ``
 awk 'BEGIN{FS=OFS="\t"} {sub(/_RagTag(_RagTag)?$/, "", $1); print}' taret_insertions.bed > b73d1_insertion.fixed.bed
 ``
-# Fix EDTA BED
+# Fix EDTA BED by renaming chromosomes
 ``
 awk 'BEGIN{FS=OFS="\t"} {
     sub(/_RagTag.*/, "", $1)
@@ -385,4 +385,18 @@ Then run this code to get the tsv for all eight individual.
 ```
 awk -f collapse_edta_gff3.awk ../../edta_after_curation/EDTA_scaffold_lib_B73D1/ragtag.scaffold.fasta.mod.EDTA.raw/ragtag.scaffold.fasta.mod.EDTA.intact.raw.gff3 > active_ins/individual1_TE_collapsedb73d1.tsv
 ```
-
+convert into bed format
+```
+awk 'BEGIN{FS=OFS="\t"} NR>1 {print $1, $6-1, $7, $2 "|" $4 "|" $3, ".", $5}' active_ins/individual1_TE_collapsedb73d1.tsv > active_ins/b73d1_TE_collapsed.bed
+```
+rename the chromosomes
+```
+awk 'BEGIN{FS=OFS="\t"} {
+    sub(/_RagTag.*/, "", $1)
+    print
+}'  active_ins/b73d1_TE_collapsed.bed > active_ins/EDTA.fixed_b73d1.bed
+```
+redo the intersect for this step again, 
+```
+bedtools intersect -wa -wb   -a b73d1_insertion.fixed.bed   -b active_ins/EDTA.fixed_b73d1.bed > active_ins/B73D1.insertion_loci_vs_EDTA.tsv
+```
