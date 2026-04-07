@@ -148,10 +148,6 @@ now lets run this code
 ```
 python paf_target_insertions_to_bed.py your.paf target_insertions.bed
 ```
-Now convert the primary alignment to bed,
-If you want a BED of those mapped loci
-awk 'BEGIN{FS=OFS="\t"} $0 !~ /^#/ {print $1, $4-1, $5, $3, ".", $7}' ../../edta_after_curation/EDTA_scaffold_lib_B73D10/ragtag.scaffold.fasta.mod.EDTA.TEanno.gff3 > b7310.edta.bed
-
 # Fix insertion BED
 ``
 awk 'BEGIN{FS=OFS="\t"} {sub(/_RagTag(_RagTag)?$/, "", $1); print}' taret_insertions.bed > b73d1_insertion.fixed.bed
@@ -164,9 +160,10 @@ awk 'BEGIN{FS=OFS="\t"} {
 }' b73all.edta.bed > EDTA.fixed_b73all.bed
 ``
 Then overlap with EDTA
-
+```
 bedtools intersect -wa -wb \
-  -a B73D7B.insertion_loci_on_own_reference.bed \
-  -b EDTA.bed > B73D7B.insertion_loci_vs_EDTA.tsv
+  -a b73d1_insertion.fixed.bed \
+  -b EDTA.fixed_b73d1.bed > B73D1.insertion_loci_vs_EDTA.tsv
+```
 
 If EDTA is GFF3 first convert it:
