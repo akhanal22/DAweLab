@@ -165,5 +165,224 @@ bedtools intersect -wa -wb \
   -a b73d1_insertion.fixed.bed \
   -b EDTA.fixed_b73d1.bed > B73D1.insertion_loci_vs_EDTA.tsv
 ```
+I ran into an issue here, i do get mutiple hits on TEs but it is from teanno.gff3 which has multiple fragmented TEs, so this time I am using raw.gff3 file from this edta_after_curation/EDTA_scaffold_lib_B73D1/ragtag.scaffold.fasta.mod.EDTA.raw/ragtag.scaffold.fasta.mod.EDTA.intact.raw.gff3. This has TEs for which there is atleast almost complete copy instead of very fragmented.
+First, i use the following awk code to generated collapsed gff3 which is specifically true for ltr because i want only major element of row and other explain in column
+```
+BEGIN {
+    FS = OFS = "\t"
 
-If EDTA is GFF3 first convert it:
+    print "seqid","element_id","feature_type","classification","strand","start","end", \
+          "region_id","region_start","region_end", \
+          "lTSD_start","lTSD_end","rTSD_start","rTSD_end", \
+          "lLTR_start","lLTR_end","rLTR_start","rLTR_end", \
+          "internal_start","internal_end", \
+          "TSD","TIR","motif","tsd_seq","ltr_identity","identity","method","Name"
+}
+
+$0 !~ /^#/ {
+
+    seqid   = $1
+    feature = $3
+    start   = $4
+    end     = $5
+    strand  = $7
+    attr    = $9
+
+    id="."; parent="."; name="."; class="."; method="."; motif="."; tsd_seq="."
+    tir="."; tsd="."; ltr_identity="."; identity="."
+
+    n = split(attr, a, ";")
+    for (i=1; i<=n; i++) {
+        if (a[i] ~ /^ID=/)              id = substr(a[i],4)
+        else if (a[i] ~ /^Parent=/)     parent = substr(a[i],8)
+        else if (a[i] ~ /^Name=/)       name = substr(a[i],6)
+        else if (a[i] ~ /^classification=/) class = substr(a[i],16)
+        else if (a[i] ~ /^method=/)     method = substr(a[i],8)
+        else if (a[i] ~ /^motif=/)      motif = substr(a[i],7)
+        else if (a[i] ~ /^tsd=/)        tsd_seq = substr(a[i],5)
+        else if (a[i] ~ /^TSD=/)        tsd = substr(a[i],5)
+        else if (a[i] ~ /^TIR=/)        tir = substr(a[i],5)
+        else if (a[i] ~ /^ltr_identity=/) ltr_identity = substr(a[i],14)
+        else if (a[i] ~ /^identity=/)   identity = substr(a[i],10)
+    }
+
+    # ------------------------------
+    # LTR repeat_region = top-level TE
+    # ------------------------------
+    if (feature == "repeat_region") {
+        key = id
+
+        seqidA[key]   = seqid
+        featureA[key] = feature
+        classA[key]   = class
+        strandA[key]  = strand
+        startA[key]   = start
+        endA[key]     = end
+        region_idA[key]    = id
+        region_startA[key] = start
+        region_endA[key]   = end
+        methodA[key]  = method
+        motifA[key]   = motif
+        tsd_seqA[key] = tsd_seq
+        ltr_idA[key]  = ltr_identity
+        nameA[key]    = name
+    }
+
+    # ------------------------------
+    # LTR subfeatures linked by Parent=repeat_region_X
+    # ------------------------------
+    else if (feature == "target_site_duplication") {
+        key = parent
+        if (!(key in seqidA)) {
+            seqidA[key] = seqid
+            featureA[key] = "repeat_region"
+            classA[key] = class
+            strandA[key] = strand
+            methodA[key] = method
+            motifA[key] = motif
+            tsd_seqA[key] = tsd_seq
+            ltr_idA[key] = ltr_identity
+            nameA[key] = name
+            region_idA[key] = key
+        }
+
+        if (id ~ /^lTSD_/) {
+            lTSD_startA[key] = start
+            lTSD_endA[key]   = end
+        } else if (id ~ /^rTSD_/) {
+            rTSD_startA[key] = start
+            rTSD_endA[key]   = end
+        }
+    }
+
+    else if (feature == "long_terminal_repeat") {
+        key = parent
+        if (!(key in seqidA)) {
+            seqidA[key] = seqid
+            featureA[key] = "repeat_region"
+            classA[key] = class
+            strandA[key] = strand
+            methodA[key] = method
+            motifA[key] = motif
+            tsd_seqA[key] = tsd_seq
+            ltr_idA[key] = ltr_identity
+            nameA[key] = name
+            region_idA[key] = key
+        }
+
+        if (id ~ /^lLTR_/) {
+            lLTR_startA[key] = start
+            lLTR_endA[key]   = end
+        } else if (id ~ /^rLTR_/) {
+            rLTR_startA[key] = start
+            rLTR_endA[key]   = end
+        }
+    }
+
+    else if (feature ~ /_LTR_retrotransposon$/) {
+        key = parent
+        if (!(key in seqidA)) {
+            seqidA[key] = seqid
+            featureA[key] = feature
+            classA[key] = class
+            strandA[key] = strand
+            methodA[key] = method
+            motifA[key] = motif
+            tsd_seqA[key] = tsd_seq
+            ltr_idA[key] = ltr_identity
+            nameA[key] = name
+            region_idA[key] = key
+        }
+        internal_startA[key] = start
+        internal_endA[key]   = end
+    }
+
+    # ------------------------------
+    # TIR elements as top-level one-row entries
+    # ------------------------------
+    else if (feature ~ /_TIR_transposon$/) {
+        key = id
+
+        seqidA[key]   = seqid
+        featureA[key] = feature
+        classA[key]   = class
+        strandA[key]  = strand
+        startA[key]   = start
+        endA[key]     = end
+        region_idA[key]    = id
+        region_startA[key] = start
+        region_endA[key]   = end
+        tsdA[key]     = tsd
+        tirA[key]     = tir
+        identityA[key]= identity
+        methodA[key]  = method
+        nameA[key]    = name
+    }
+
+    # ------------------------------
+    # Other TE rows: keep one row as top-level
+    # ------------------------------
+    else if (feature != "target_site_duplication" && feature != "long_terminal_repeat") {
+        key = id
+
+        seqidA[key]   = seqid
+        featureA[key] = feature
+        classA[key]   = class
+        strandA[key]  = strand
+        startA[key]   = start
+        endA[key]     = end
+        region_idA[key]    = id
+        region_startA[key] = start
+        region_endA[key]   = end
+        methodA[key]  = method
+        motifA[key]   = motif
+        tsd_seqA[key] = tsd_seq
+        tsdA[key]     = tsd
+        tirA[key]     = tir
+        ltr_idA[key]  = ltr_identity
+        identityA[key]= identity
+        nameA[key]    = name
+    }
+}
+
+END {
+    for (key in seqidA) {
+        s  = (key in startA ? startA[key] : region_startA[key])
+        e  = (key in endA ? endA[key] : region_endA[key])
+
+        print seqidA[key], \
+              key, \
+              featureA[key], \
+              classA[key], \
+              strandA[key], \
+              s, \
+              e, \
+              region_idA[key], \
+              region_startA[key], \
+              region_endA[key], \
+              lTSD_startA[key], \
+              lTSD_endA[key], \
+              rTSD_startA[key], \
+              rTSD_endA[key], \
+              lLTR_startA[key], \
+              lLTR_endA[key], \
+              rLTR_startA[key], \
+              rLTR_endA[key], \
+              internal_startA[key], \
+              internal_endA[key], \
+              tsdA[key], \
+              tirA[key], \
+              motifA[key], \
+              tsd_seqA[key], \
+              ltr_idA[key], \
+              identityA[key], \
+              methodA[key], \
+              nameA[key]
+    }
+}
+```
+Then run this code to get the tsv for all eight individual.  
+```
+awk -f collapse_edta_gff3.awk ../../edta_after_curation/EDTA_scaffold_lib_B73D1/ragtag.scaffold.fasta.mod.EDTA.raw/ragtag.scaffold.fasta.mod.EDTA.intact.raw.gff3 > active_ins/individual1_TE_collapsedb73d1.tsv
+```
+
