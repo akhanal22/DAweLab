@@ -21,7 +21,7 @@ set -euo pipefail
 FA=J702_v3.contig.fa
 OUT=J702_v3.contig_modified.fa
 
-# 1. Split ptg000016l at 23 700 225 bp. note that cutoff starts at 122094  23700222. I just did three bp extra on right end.
+# 1. Split ptg000016l at 23 700 222 bp. 
 samtools faidx "$FA" ptg000016l:0-23700222 \
   | sed 's/^>ptg000016l/>ptg000016la/' > "$OUT"
 samtools faidx "$FA" ptg000016l:23700223-71528896 \
@@ -324,6 +324,52 @@ samtools faidx "$FA" ptg000025lb:5374651-27468773 \
 # extract all other contigs except the original ptg000025lb
 cut -f1 "$FA.fai" | grep -Ev '^(ptg000025lb)$' > keep.list
 samtools faidx -r keep.list "$FA" >> "$OUT"
+
+# clean up
+rm keep.list
+```
+I had to rearrange B73D7B genome too because based on syri vcf it looks likes there is inversion "chr1_RagTag_RagTag	227949567	INVAL33	N	<INVAL>	.	PASS	END=229457231;ChrB=chr1_RagTag_RagTag;StartB=229572573;EndB=228064848;Parent=INV12;VarType=.;DupType=.	GT	1" where a is J702 and B is B73D2. But, the inversion breakposint has no coverage when i reads of B73D7b against its own genome. So, I am manually breaking the contig at the exact inversion breakpoint to redo scaffolding
+```
+#!/bin/bash
+#SBATCH --job-name=b73d7b
+#SBATCH --partition=batch
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --time=10:00:00
+#SBATCH --mem=100G
+#SBATCH --output=%x.%j.out
+#SBATCH --error=%x.%j.err
+#SBATCH --mail-user=ak18787@uga.edu
+#SBATCH --mail-type=END,FAIL
+
+set -euo pipefail
+
+# input and output file names
+FA=B73D7B_v3.contig_modified.fa
+OUT=B73D7B_v3.contig_modified_re.fa
+
+# make sure fasta is indexed
+samtools faidx "$FA"
+
+# start fresh
+: > "$OUT"
+
+# split ptg000024l into three contigs
+samtools faidx "$FA" ptg000024l:1-134805 \
+  | sed 's/^>ptg000024l:1-134805$/>ptg000024la/' > "$OUT"
+
+samtools faidx "$FA" ptg000024l:134806-1631659 \
+  | sed 's/^>ptg000024l:134806-1631659$/>ptg000024lb/' >> "$OUT"
+
+samtools faidx "$FA" ptg000024l:1631660-23733356 \
+  | sed 's/^>ptg000024l:1631660-23733356$/>ptg000024lc/' >> "$OUT"
+
+# extract all other contigs except the original ptg000024l
+cut -f1 "$FA.fai" | grep -Ev '^(ptg000024l)$' > keep.list
+samtools faidx -r keep.list "$FA" >> "$OUT"
+
+# index new fasta
+samtools faidx "$OUT"
 
 # clean up
 rm keep.list
