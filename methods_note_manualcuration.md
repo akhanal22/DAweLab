@@ -374,4 +374,50 @@ samtools faidx "$OUT"
 # clean up
 rm keep.list
 ```
+ALso, for B73D2, there was translocation on chr2 where first 1mb of chr2 of J702 aligned with 195-196mb of B73D2 based on genome alignment and syri vcf call and plotsr, the coverage plot show no coverage on translocation break point which is why i had to manually cut the contigs and redo the scaffolding again.
+```
+#!/bin/bash
+#SBATCH --job-name=b73d2
+#SBATCH --partition=batch
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --time=10:00:00
+#SBATCH --mem=100G
+#SBATCH --output=%x.%j.out
+#SBATCH --error=%x.%j.err
+#SBATCH --mail-user=ak18787@uga.edu
+#SBATCH --mail-type=END,FAIL
+
+set -euo pipefail
+
+# input and output file names
+FA=B73D2_v3.contig_modified.fa
+OUT=B73D2_v3.contig_modified_re.fa
+
+# make sure fasta is indexed
+samtools faidx "$FA"
+
+# start fresh
+: > "$OUT"
+
+# split ptg000024l into three contigs
+samtools faidx "$FA" ptg000027l:1-6927300 \
+  | sed 's/^>ptg000027l:1-6927300$/>ptg000027la/' > "$OUT"
+
+samtools faidx "$FA" ptg000027l:6927301-7918065 \
+  | sed 's/^>ptg000027l:6927301-7918065$/>ptg000027lb/' >> "$OUT"
+
+#samtools faidx "$FA" ptg000024l:1631660-23733356 \
+ # | sed 's/^>ptg000024l:1631660-23733356$/>ptg000024lc/' >> "$OUT"
+
+# extract all other contigs except the original ptg000024l
+cut -f1 "$FA.fai" | grep -Ev '^(ptg000027l)$' > keep.list
+samtools faidx -r keep.list "$FA" >> "$OUT"
+
+# index new fasta
+samtools faidx "$OUT"
+
+# clean up
+rm keep.list
+```
 
