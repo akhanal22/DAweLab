@@ -47,9 +47,10 @@ longcallD call \
   > "${outdir}/${file}.longcallD.vcf"
   ```
   After this i only select for snps
+  
   ```
   bcftools view -v snps B73D1.longcallD.vcf -Oz -o B73D1.longcallD.snps.vcf
-  ```
+```
   Now, the rigourous filtering only for confident snps
   ```
    bcftools filter   -e 'QUAL<50 || FILTER!="PASS" || FORMAT/DP<40 || FORMAT/GQ<30'   B73D1.longcallD.snps.vcf -Ou | bcftools view   -i '(
@@ -62,8 +63,8 @@ longcallD call \
 
   ```
 
-The same filtering was applied for all other individuals
-``` Now to be sure that the variant are accurate and not generated due to sequencing error, i filtered out the snvs that were present in J702 using following code:
+Same filtering was applied for all other individuals
+Now to be sure that the variant are accurate and not generated due to sequencing error, i filtered out the snvs that were present in J702 using following code:
 ```
  While read file; do bcftools isec   -n=1 -w1   ${file}.longcallD.snps.rigorous.vcf.gz   J702.longcallD.snps.vcf.gz   -Oz -o ${file}.noJ702.snps.vcf.gz ; done < linename.lst
 ``
