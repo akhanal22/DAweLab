@@ -65,6 +65,7 @@ longcallD call \
 
 Same filtering was applied for all other individuals
 Now to be sure that the variant are accurate and not generated due to sequencing error, i filtered out the snvs that were present in J702 using following code:
+
 ```
  While read file; do bcftools isec   -n=1 -w1   ${file}.longcallD.snps.rigorous.vcf.gz   J702.longcallD.snps.vcf.gz   -Oz -o ${file}.noJ702.snps.vcf.gz ; done < linename.lst
-``
+```
