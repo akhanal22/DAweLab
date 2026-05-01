@@ -123,5 +123,22 @@ date
 
 After normalization, I finally do the filtering
 ```
- while read file; do     invcf="${file}.longcallD.snps.rigorous.norm.vcf.gz";     outvcf="${file}.longcallD.snps.rigorous.norm.noJ702.vcf.gz"     echo "Removing J702-shared SNPs from $file"     bcftools isec       -n=1 -w1       "$invcf"       J702.longcallD.snps.norm.vcf.gz       -Oz -o "$outvcf"     bcftools index -c "$outvcf" ; done < linename.lst
+while read file; do
+    invcf="${file}.longcallD.snps.rigorous.norm.vcf.gz"
+    outvcf="${file}.longcallD.snps.rigorous.norm.noJ702.vcf.gz"
+
+    echo "Removing J702-shared SNPs from $file"
+    echo "Input:  $invcf"
+    echo "Output: $outvcf"
+
+    bcftools isec \
+      -n=1 -w1 \
+      "$invcf" \
+      J702.longcallD.snps.norm.vcf.gz \
+      -Oz -o "$outvcf"
+
+    bcftools index -c "$outvcf"
+
+done < linename.lst
+
 ```
