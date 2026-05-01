@@ -50,7 +50,7 @@ longcallD call \
   ```
   bcftools view -v snps B73D1.longcallD.vcf -Oz -o B73D1.longcallD.snps.vcf
   ```
-  Niw, the rigourous filtering only for confident snps
+  Now, the rigourous filtering only for confident snps
   ```
    bcftools filter   -e 'QUAL<50 || FILTER!="PASS" || FORMAT/DP<40 || FORMAT/GQ<30'   B73D1.longcallD.snps.vcf -Ou | bcftools view   -i '(
         GT="1|1" && FORMAT/AD[0:1]/FORMAT/DP >= 0.90
@@ -61,7 +61,5 @@ longcallD call \
       )'   -Oz -o B73D1.longcallD.snps.rigorous.vcf
 
   ```
-  
 
-date
-echo "Done"
+The same filtering was applied for all other individuals
