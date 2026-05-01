@@ -53,7 +53,7 @@ longcallD call \
   Niw, the rigourous filtering only for confident snps
   ```
    bcftools view -v snps B73D1.longcallD.vcf -Oz -o B73D1.longcallD.snps.vcf
-  104  [2026-05-01 12:04:13]  bcftools filter   -e 'QUAL<50 || FILTER!="PASS" || FORMAT/DP<40 || FORMAT/DP>150 || FORMAT/GQ<30'   B73D1.longcallD.snps.vcf -Ou | bcftools view   -i '(GT="AA" && FORMAT/AD[0:1]/FORMAT/DP >= 0.90) || (GT="het" && FORMAT/AD[0:1]/FORMAT/DP >= 0.30 && FORMAT/AD[0:1]/FORMAT/DP <= 0.70)'   -Oz -o B73D1.longcallD.snps.rigorous.vcf
+  104  [2026-05-01 12:04:13]  bcftools filter   -e 'QUAL<50 || FILTER!="PASS" || FORMAT/DP<40 || FORMAT/GQ<30'   B73D1.longcallD.snps.vcf -Ou | bcftools view   -i '(GT="AA" && FORMAT/AD[0:1]/FORMAT/DP >= 0.90) || (GT="het" && FORMAT/AD[0:1]/FORMAT/DP >= 0.30 && FORMAT/AD[0:1]/FORMAT/DP <= 0.70)'   -Oz -o B73D1.longcallD.snps.rigorous.vcf
   ```
   
 
