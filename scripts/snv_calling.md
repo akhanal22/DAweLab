@@ -64,8 +64,64 @@ longcallD call \
   ```
 
 Same filtering was applied for all other individuals
-Now to be sure that the variant are accurate and not generated due to sequencing error, i filtered out the snvs that were present in J702 using following code:
-
+Now to be sure that the variant are accurate and not generated due to sequencing error, i filtered out the snvs that were present in J702 using following code but first i normalized the vcf for each of them
 ```
- while read file; do bcftools isec   -n=1 -w1   ${file}.longcallD.snps.rigorous.vcf.gz   J702.longcallD.snps.vcf.gz   -Oz -o ${file}.noJ702.snps.vcf.gz ; done < linename.lst
+#SBATCH --array=1-7
+#SBATCH --output=%x.%A_%a.out
+#SBATCH --error=%x.%A_%a.err
+#SBATCH --mail-user=ak18787@uga.edu
+#SBATCH --mail-type=END,FAIL
+
+set -euo pipefail
+
+source ~/ENTER/etc/profile.d/conda.sh
+conda activate base
+
+# reference used for mapping/calling
+ref="../../J702_v3_modified_ragtag_re/ragtag.scaffold.fasta"
+
+# sample name from list
+file=$(sed -n "${SLURM_ARRAY_TASK_ID}p" linename.lst | tr -d '\r' | xargs)
+
+
+gzvcf="${file}.longcallD.snps.rigorous.vcf.gz"
+normvcf="${file}.longcallD.snps.rigorous.norm.vcf.gz"
+
+echo "Sample: $file"
+#echo "Input VCF: $invcf"
+echo "Reference: $ref"
+date
+
+# checks
+[[ -s "$ref" ]] || { echo "ERROR: missing reference $ref"; exit 1; }
+[[ -s "${ref}.fai" ]] || samtools faidx "$ref"
+
+# compress if needed
+#if [[ ! -s "$gzvcf" ]]; then
+ #   [[ -s "$invcf" ]] || { echo "ERROR: missing input VCF $invcf"; exit 1; }
+  #  bgzip -c "$invcf" > "$gzvcf"
+#fi
+
+# index input
+if [[ ! -s "${gzvcf}.csi" ]]; then
+    bcftools index -c "$gzvcf"
+fi
+
+# normalize
+bcftools norm \
+  -f "$ref" \
+  -Oz \
+  -o "$normvcf" \
+  "$gzvcf"
+
+# index normalized output
+bcftools index -c "$normvcf"
+
+echo "Finished normalization for $file"
+date
+```
+
+After normalization, I finally do the filtering
+```
+ while read file; do     invcf="${file}.longcallD.snps.rigorous.norm.vcf.gz";     outvcf="${file}.longcallD.snps.rigorous.norm.noJ702.vcf.gz"     echo "Removing J702-shared SNPs from $file"     bcftools isec       -n=1 -w1       "$invcf"       J702.longcallD.snps.norm.vcf.gz       -Oz -o "$outvcf"     bcftools index -c "$outvcf" ; done < linename.lst
 ```
