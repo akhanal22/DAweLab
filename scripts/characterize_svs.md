@@ -12,3 +12,21 @@ Now i want different sizes of insertion, for which i use bcftools again
 ```
 bcftools view -i 'SVTYPE="INS"' B73D1/0000.vcf | bcftools query -f '%INFO/SVLEN\n' > ins_sizes.txt
 ```
+Now, to see distribution of different length of SVs, lets use this awk command:
+```
+awk '
+{
+    size = $1
+    if (size < 50) small++
+    else if (size < 500) medium++
+    else if (size < 5000) large++
+    else very_large++
+}
+END {
+    print "Size_range\tCount"
+    print "<50 bp\t" small
+    print "50–500 bp\t" medium
+    print "500–5kb\t" large
+    print ">5kb\t" very_large
+}' ins_sizes.txt
+```
