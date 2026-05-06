@@ -1,4 +1,4 @@
-<img width="919" height="551" alt="image" src="https://github.com/user-attachments/assets/69bb1c9d-7129-42c0-8b11-5e1c122efef8" />This is the code used for calling snvs using long read pacbio hifi data, I already had the bam file that was made using minimap2 by mapping raw reads against the J702 modified reference genomes.
+This is the code used for calling snvs using long read pacbio hifi data, I already had the bam file that was made using minimap2 by mapping raw reads against the J702 modified reference genomes.
 So I used longcall (Version: 0.0.8) to run following script 
 ```
 #!/bin/bash
