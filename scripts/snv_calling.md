@@ -170,7 +170,6 @@ END{
 ```
 Based on this following table represents private snv counts for each
 
-```
 | Line | Private SNVs | Generations |
 |------|---------------|-------------|
 | B73D1 | 3520 | 33 |
@@ -181,7 +180,7 @@ Based on this following table represents private snv counts for each
 | B73D10 | 3478 | 33 |
 | B73all | 770 | 35 |
 | **Total** | **16177** | **233** |
-```
+
 Now we calculate the mutation rate as below:
 
 For estimating mutation  rate:
