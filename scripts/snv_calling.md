@@ -1,3 +1,4 @@
+
 This is the code used for calling snvs using long read pacbio hifi data, I already had the bam file that was made using minimap2 by mapping raw reads against the J702 modified reference genomes.
 So I used longcall (Version: 0.0.8) to run following script 
 ```
@@ -168,28 +169,69 @@ END{
   for(s in count) print s, count[s]
 }' private_snvs.only_one_line.vcf > private_snv_counts.tsv
 ```
-Based on this following table represents private snv counts for each
+However, since, B73D4 and B73all were same for 33 generations and B73D7b and B73D7c were same until 15 generation , I found the common snps across them using following code
+```
+bcftools view -m2 -M2 -v snps seven_lines.merged.vcf.gz \
+| awk '
+BEGIN{OFS="\t"}
+
+function is_alt(gt_field){
+  split(gt_field,a,":")
+  gt=a[1]
+  return (gt=="0/1" || gt=="1/0" || gt=="1/1" || gt=="0|1" || gt=="1|0" || gt=="1|1")
+}
+
+/^#CHROM/{
+  for(i=10;i<=NF;i++){
+    sample[$i]=i
+  }
+  next
+}
+
+!/^#/{
+  d4     = is_alt($sample["B73D4.sorted.bam"])
+  all    = is_alt($sample["B73all.sorted.bam"])
+  d7b    = is_alt($sample["B73D7B.sorted.bam"])
+  d7c    = is_alt($sample["B73D7C.sorted.bam"])
+
+  if(d4 && all){
+    count["B73D4_B73all_shared"]++
+  }
+
+  if(d7b && d7c){
+    count["B73D7B_B73D7C_shared"]++
+  }
+}
+
+END{
+  print "Category","Count"
+  print "B73D4_B73all_shared", count["B73D4_B73all_shared"]+0
+  print "B73D7B_B73D7C_shared", count["B73D7B_B73D7C_shared"]+0
+}
+' > shared_snv_counts.tsv
+```
+Based on this following table represents private snv counts for each (except B73D4) and shared snvs between B73D4 and B73all and B7D7B and B73D7C
 
 | Line | Private SNVs | Generations |
 |------|---------------|-------------|
 | B73D1 | 3520 | 33 |
 | B73D2 | 3580 | 33 |
-| B73D4 | 398 | 33 |
-| B73D7B | 2142 | 33 |
-| B73D7c | 2289 | 33 |
+| B73D4+B73all | 3878 | 33 |
+| B73D7B | 2142 | 18 |
+| B73D7c | 2289 | 18 |
 | B73D10 | 3478 | 33 |
 | B73all | 770 | 35 |
-| **Total** | **16177** | **233** |
+| B73D7B+B73D7C | 1787 | 15 | 
+| **Total** | **21444** | **185** |
 
 Now we calculate the mutation rate as below:
 
 For estimating mutation  rate:
-Total unique SNVs (sum all) = 16177
-Total generation = 6 *33 + 35 = 233
+Total unique SNVs (sum all) = 21444
+Total generation = 185
 Genome size = 2.1gb
-Mutation rate = Total snvs/(2 * genome size * total generations) 
-                             = 16177/(2 * 2100000000 * 233)  
-	          = 1.65* 10 ^-8/ site/generation 
+Mutation rate = Total snvs/(2 * genome size * total generations)  
+	          = 2.76* 10 ^-8/ site/generation 
 
 
 
