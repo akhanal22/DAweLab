@@ -220,7 +220,7 @@ Based on this following table represents private snv counts for each (except B73
 | B73D7B | 2142 | 18 |
 | B73D7c | 2289 | 18 |
 | B73D10 | 3478 | 33 |
-| B73all | 770 | 35 |
+| B73all | 770 | 2 |
 | B73D7B+B73D7C | 1787 | 15 | 
 | **Total** | **21444** | **185** |
 
