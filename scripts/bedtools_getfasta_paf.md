@@ -1,7 +1,7 @@
-When creating the dotplot for whole genome and whole chromosomes, it doesnot show the small insertions and deletion. So, we need to separate the fasta suence and here we separate it in
+When creating the dotplot for whole genome and whole chromosomes, it doesnot show the small insertions and deletion. So, we need to separate the fasta sequence and here we separate it in
 1kb bins. To do that, first I create the bed file for each chromosome of each individual.
 ```
-hile read chr
+while read chr
 do
     echo "Processing $chr"
 
@@ -16,7 +16,7 @@ do
 
 done < ./chr1_10.list
 ```
-Do this for each individual. We now use bedtools fet fasta to break the fasta sequence for each individual. Ideally, you could do this is array job however naming should be consistent. I, unfortunately didnot have consistent naming for genome file so did it separately
+Do this for each individual. We now use bedtools get fasta to break the fasta sequence for each individual. Ideally, you could do this is array job however naming should be consistent. I, unfortunately didnot have consistent naming for genome file so did it separately
 ```
 #!/bin/bash
 #SBATCH --job-name=b73d7c_scaffold
