@@ -1,3 +1,4 @@
+```
 awk 'BEGIN{
 OFS="\t";
 print "ref_chr","ref_start","ref_end","size_reference_bp","query_chr","query_start","query_end","size_target_bp","variant_id","type"
@@ -20,3 +21,4 @@ print "ref_chr","ref_start","ref_end","size_reference_bp","query_chr","query_sta
               $9,$11
     }
 }' B73D1syri.out > B73D1_INS_DEL_gt1kb_coordinates_sizes.tsv
+```
