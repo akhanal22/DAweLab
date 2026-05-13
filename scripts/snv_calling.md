@@ -235,6 +235,130 @@ Mutation rate = Total snvs/(2 * genome size * total generations)
 
 
 
+Following the approach from arabidopsis paper, lets count private heterozygous and homozygous mutation first:
+```
+bcftools view -m2 -M2 -v snps seven_lines.merged.vcf.gz \
+| awk '
+BEGIN{OFS="\t"}
+
+function gt_type(gt_field){
+  split(gt_field,a,":")
+  gt=a[1]
+
+  if(gt=="0/1" || gt=="1/0" || gt=="0|1" || gt=="1|0") return "het"
+  if(gt=="1/1" || gt=="1|1") return "hom"
+
+  return "ref"
+}
+
+/^#CHROM/{
+  for(i=10;i<=NF;i++){
+    sample[$i]=i
+  }
+  next
+}
+
+!/^#/{
+  d4  = gt_type($sample["B73D4.sorted.bam"])
+  all = gt_type($sample["B73all.sorted.bam"])
+  d7b = gt_type($sample["B73D7B.sorted.bam"])
+  d7c = gt_type($sample["B73D7C.sorted.bam"])
+
+  if(d4!="ref" && all!="ref"){
+    count["B73D4_B73all_shared_total"]++
+
+    if(d4=="het" && all=="het") count["B73D4_B73all_shared_het_het"]++
+    else if(d4=="hom" && all=="hom") count["B73D4_B73all_shared_hom_hom"]++
+    else count["B73D4_B73all_shared_mixed_het_hom"]++
+  }
+
+  if(d7b!="ref" && d7c!="ref"){
+    count["B73D7B_B73D7C_shared_total"]++
+
+    if(d7b=="het" && d7c=="het") count["B73D7B_B73D7C_shared_het_het"]++
+    else if(d7b=="hom" && d7c=="hom") count["B73D7B_B73D7C_shared_hom_hom"]++
+    else count["B73D7B_B73D7C_shared_mixed_het_hom"]++
+  }
+}
+
+END{
+  print "Category","Count"
+
+  print "B73D4_B73all_shared_total", count["B73D4_B73all_shared_total"]+0
+  print "B73D4_B73all_shared_het_het", count["B73D4_B73all_shared_het_het"]+0
+  print "B73D4_B73all_shared_hom_hom", count["B73D4_B73all_shared_hom_hom"]+0
+  print "B73D4_B73all_shared_mixed_het_hom", count["B73D4_B73all_shared_mixed_het_hom"]+0
+
+  print "B73D7B_B73D7C_shared_total", count["B73D7B_B73D7C_shared_total"]+0
+  print "B73D7B_B73D7C_shared_het_het", count["B73D7B_B73D7C_shared_het_het"]+0
+  print "B73D7B_B73D7C_shared_hom_hom", count["B73D7B_B73D7C_shared_hom_hom"]+0
+  print "B73D7B_B73D7C_shared_mixed_het_hom", count["B73D7B_B73D7C_shared_mixed_het_hom"]+0
+}
+' > shared_snv_counts_het_hom.tsv
+```
+Now shared count
+```
+bcftools view -m2 -M2 -v snps seven_lines.merged.vcf.gz \
+| awk '
+BEGIN{OFS="\t"}
+
+function gt_type(gt_field){
+  split(gt_field,a,":")
+  gt=a[1]
+
+  if(gt=="0/1" || gt=="1/0" || gt=="0|1" || gt=="1|0") return "het"
+  if(gt=="1/1" || gt=="1|1") return "hom"
+
+  return "ref"
+}
+
+/^#CHROM/{
+  for(i=10;i<=NF;i++){
+    sample[$i]=i
+  }
+  next
+}
+
+!/^#/{
+  d4  = gt_type($sample["B73D4.sorted.bam"])
+  all = gt_type($sample["B73all.sorted.bam"])
+  d7b = gt_type($sample["B73D7B.sorted.bam"])
+  d7c = gt_type($sample["B73D7C.sorted.bam"])
+
+  if(d4!="ref" && all!="ref"){
+    count["B73D4_B73all_shared_total"]++
+
+    if(d4=="het" && all=="het") count["B73D4_B73all_shared_het_het"]++
+    else if(d4=="hom" && all=="hom") count["B73D4_B73all_shared_hom_hom"]++
+    else count["B73D4_B73all_shared_mixed_het_hom"]++
+  }
+
+  if(d7b!="ref" && d7c!="ref"){
+    count["B73D7B_B73D7C_shared_total"]++
+
+    if(d7b=="het" && d7c=="het") count["B73D7B_B73D7C_shared_het_het"]++
+    else if(d7b=="hom" && d7c=="hom") count["B73D7B_B73D7C_shared_hom_hom"]++
+    else count["B73D7B_B73D7C_shared_mixed_het_hom"]++
+  }
+}
+
+END{
+  print "Category","Count"
+
+  print "B73D4_B73all_shared_total", count["B73D4_B73all_shared_total"]+0
+  print "B73D4_B73all_shared_het_het", count["B73D4_B73all_shared_het_het"]+0
+  print "B73D4_B73all_shared_hom_hom", count["B73D4_B73all_shared_hom_hom"]+0
+  print "B73D4_B73all_shared_mixed_het_hom", count["B73D4_B73all_shared_mixed_het_hom"]+0
+
+  print "B73D7B_B73D7C_shared_total", count["B73D7B_B73D7C_shared_total"]+0
+  print "B73D7B_B73D7C_shared_het_het", count["B73D7B_B73D7C_shared_het_het"]+0
+  print "B73D7B_B73D7C_shared_hom_hom", count["B73D7B_B73D7C_shared_hom_hom"]+0
+  print "B73D7B_B73D7C_shared_mixed_het_hom", count["B73D7B_B73D7C_shared_mixed_het_hom"]+0
+}
+' > shared_snv_counts_het_hom.tsv
+```
+
+
 
 
 
