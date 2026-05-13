@@ -8,6 +8,10 @@ from matplotlib.collections import LineCollection
 from matplotlib.patches import Rectangle
 
 
+def clean_chr_name(chrom):
+    return chrom.replace("_RagTag_RagTag", "")
+
+
 def parse_window_name(name):
     m = re.match(r"(.+):(\d+)-(\d+)$", name)
     if m:
@@ -109,15 +113,18 @@ def simplify_class(x):
     return "Other"
 
 
-def plot_dotplot_with_te(df, ref_te, qry_te, start, end, output):
+def plot_dotplot_with_te(
+    df, ref_te, qry_te,
+    start, end, output,
+    ref_chr, qry_chr,
+    ref_name, qry_name,
+    x_genome
+):
     fig = plt.figure(figsize=(12, 9))
 
-    # Layout:
-    # left TE panel | main dotplot
-    #                bottom TE panel
     ax_dot = fig.add_axes([0.24, 0.38, 0.68, 0.55])
-    ax_ref = fig.add_axes([0.24, 0.14, 0.68, 0.14], sharex=ax_dot)
-    ax_qry = fig.add_axes([0.04, 0.38, 0.12, 0.55])
+    ax_xte = fig.add_axes([0.24, 0.14, 0.68, 0.14], sharex=ax_dot)
+    ax_yte = fig.add_axes([0.04, 0.38, 0.12, 0.55], sharey=ax_dot)
 
     classes = [
         "LTR/Gypsy",
@@ -132,21 +139,48 @@ def plot_dotplot_with_te(df, ref_te, qry_te, start, end, output):
 
     class_y = {c: i for i, c in enumerate(classes)}
 
-    # -----------------------
-    # Main dotplot
-    # -----------------------
+    if x_genome == "query":
+        x_start_col = "qry_start_genome"
+        x_end_col = "qry_end_genome"
+        y_start_col = "ref_start_genome"
+        y_end_col = "ref_end_genome"
+
+        x_te = qry_te
+        y_te = ref_te
+
+        x_name = qry_name
+        y_name = ref_name
+
+        x_chr = qry_chr
+        y_chr = ref_chr
+
+    else:
+        x_start_col = "ref_start_genome"
+        x_end_col = "ref_end_genome"
+        y_start_col = "qry_start_genome"
+        y_end_col = "qry_end_genome"
+
+        x_te = ref_te
+        y_te = qry_te
+
+        x_name = ref_name
+        y_name = qry_name
+
+        x_chr = ref_chr
+        y_chr = qry_chr
+
     segments = []
 
     for _, row in df.iterrows():
-        x1 = row["ref_start_genome"] / 1e6
-        x2 = row["ref_end_genome"] / 1e6
+        x1 = row[x_start_col] / 1e6
+        x2 = row[x_end_col] / 1e6
 
         if row["strand"] == "+":
-            y1 = row["qry_start_genome"] / 1e6
-            y2 = row["qry_end_genome"] / 1e6
+            y1 = row[y_start_col] / 1e6
+            y2 = row[y_end_col] / 1e6
         else:
-            y1 = row["qry_end_genome"] / 1e6
-            y2 = row["qry_start_genome"] / 1e6
+            y1 = row[y_end_col] / 1e6
+            y2 = row[y_start_col] / 1e6
 
         segments.append([(x1, y1), (x2, y2)])
 
@@ -156,61 +190,51 @@ def plot_dotplot_with_te(df, ref_te, qry_te, start, end, output):
     ax_dot.set_xlim(start / 1e6, end / 1e6)
     ax_dot.set_ylim(start / 1e6, end / 1e6)
 
-    # Show chromosome coordinate tick labels on BOTH axes
     ax_dot.tick_params(axis="x", labelbottom=True)
     ax_dot.tick_params(axis="y", labelleft=True)
 
-    ax_dot.set_xlabel("J702 chr1 position (Mb)")
-    ax_dot.set_ylabel("B73all chr1 position (Mb)", labelpad=18)
+    short_chr = clean_chr_name(x_chr)
+
+    ax_dot.set_xlabel(f"{x_name} {short_chr} position (Mb)")
+    ax_dot.set_ylabel(f"{y_name} {clean_chr_name(y_chr)} position (Mb)", labelpad=18)
 
     ax_dot.set_title(
-        f"chr1:{start/1e6:.1f}-{end/1e6:.1f} Mb dotplot with TE annotation"
+        f"{short_chr}:{start/1e6:.1f}-{end/1e6:.1f} Mb dotplot with TE annotation"
     )
 
-    # -----------------------
-    # J702 TE track below x-axis
-    # -----------------------
-    for _, row in ref_te.iterrows():
+    # X-axis TE track
+    for _, row in x_te.iterrows():
         c = simplify_class(row["classification"])
         y = class_y.get(c, class_y["Other"])
         x = row["start"] / 1e6
         w = (row["end"] - row["start"]) / 1e6
+        ax_xte.add_patch(Rectangle((x, y - 0.35), w, 0.7))
 
-        ax_ref.add_patch(Rectangle((x, y - 0.35), w, 0.7))
+    ax_xte.set_xlim(start / 1e6, end / 1e6)
+    ax_xte.set_ylim(-1, len(classes))
+    ax_xte.set_yticks(range(len(classes)))
+    ax_xte.set_yticklabels(classes, fontsize=8)
+    ax_xte.set_ylabel(f"{x_name}\nTEs", fontsize=9)
+    ax_xte.set_xlabel(f"{x_name} {clean_chr_name(x_chr)} position (Mb)")
 
-    ax_ref.set_xlim(start / 1e6, end / 1e6)
-    ax_ref.set_ylim(-1, len(classes))
-
-    ax_ref.set_yticks(range(len(classes)))
-    ax_ref.set_yticklabels(classes, fontsize=8)
-
-    ax_ref.set_ylabel("J702\nTEs", fontsize=9)
-    ax_ref.set_xlabel("J702 chr1 position (Mb)")
-
-    # -----------------------
-    # B73all TE track on left side
-    # -----------------------
-    for _, row in qry_te.iterrows():
+    # Y-axis TE track
+    for _, row in y_te.iterrows():
         c = simplify_class(row["classification"])
         x = class_y.get(c, class_y["Other"])
         y = row["start"] / 1e6
         h = (row["end"] - row["start"]) / 1e6
+        ax_yte.add_patch(Rectangle((x - 0.35, y), 0.7, h))
 
-        ax_qry.add_patch(Rectangle((x - 0.35, y), 0.7, h))
+    ax_yte.set_xlim(-1, len(classes))
+    ax_yte.set_ylim(start / 1e6, end / 1e6)
 
-    ax_qry.set_xlim(-1, len(classes))
-    ax_qry.set_ylim(start / 1e6, end / 1e6)
+    ax_yte.set_xticks(range(len(classes)))
+    ax_yte.set_xticklabels(classes, rotation=90, fontsize=8)
 
-    # TE names for left panel
-    ax_qry.set_xticks(range(len(classes)))
-    ax_qry.set_xticklabels(classes, rotation=90, fontsize=8)
-
-    # Y-axis coordinates for B73all TE panel
-    ax_qry.tick_params(axis="y", labelleft=True)
-    ax_qry.set_ylabel("B73all chr1 position (Mb)", fontsize=9)
-
-    ax_qry.set_xlabel("B73all TEs", fontsize=9)
-    ax_qry.set_title("B73all\nTEs", fontsize=9)
+    ax_yte.tick_params(axis="y", labelleft=True)
+    ax_yte.set_ylabel(f"{y_name} {clean_chr_name(y_chr)} position (Mb)", fontsize=9)
+    ax_yte.set_xlabel(f"{y_name} TEs", fontsize=9)
+    ax_yte.set_title(f"{y_name}\nTEs", fontsize=9)
 
     plt.savefig(output, dpi=600, bbox_inches="tight")
     plt.close()
@@ -225,13 +249,23 @@ def main():
     parser.add_argument("--ref_gff", required=True)
     parser.add_argument("--qry_gff", required=True)
 
-    parser.add_argument("--ref_chr", default="chr1_RagTag_RagTag")
-    parser.add_argument("--qry_chr", default="chr1_RagTag_RagTag")
+    parser.add_argument("--ref_chr", required=True)
+    parser.add_argument("--qry_chr", required=True)
 
-    parser.add_argument("--start", type=int, default=227000000)
-    parser.add_argument("--end", type=int, default=250000000)
+    parser.add_argument("--ref_name", default="J702")
+    parser.add_argument("--qry_name", default="B73all")
 
-    parser.add_argument("--output", default="chr1_dotplot_TE.png")
+    parser.add_argument("--start", type=int, required=True)
+    parser.add_argument("--end", type=int, required=True)
+
+    parser.add_argument(
+        "--x_genome",
+        choices=["ref", "query"],
+        default="query",
+        help="Which genome to put on x-axis. Use query for B73all/B73D1 on x-axis and J702 on y-axis."
+    )
+
+    parser.add_argument("--output", default="dotplot_TE.png")
 
     args = parser.parse_args()
 
@@ -267,7 +301,12 @@ def main():
         qry_te,
         args.start,
         args.end,
-        args.output
+        args.output,
+        args.ref_chr,
+        args.qry_chr,
+        args.ref_name,
+        args.qry_name,
+        args.x_genome
     )
 
 
