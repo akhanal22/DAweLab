@@ -66,9 +66,10 @@ done
     echo -e "$sample\t$total\t$genic\t$intergenic"
 
 done > per_sample_genic_intergenic/private_snp_genic_intergenic_counts.tsv
+```
 
 Now to make the figure for snp distribution, First make one combined BED with SNP type:
-
+```
 awk -v s="$sample" 'BEGIN{OFS="\t"} {print $1,$2,$3,$4,"het"}' \
 per_sample_genic_intergenic/${sample}.het_private_snps.bed \
 > ${sample}.private_snps.plot.bed
@@ -76,9 +77,9 @@ per_sample_genic_intergenic/${sample}.het_private_snps.bed \
 awk -v s="$sample" 'BEGIN{OFS="\t"} {print $1,$2,$3,$4,"hom"}' \
 per_sample_genic_intergenic/${sample}.hom_private_snps.bed \
 >> ${sample}.private_snps.plot.bed
-
+```
 Then use this R code to plot SNPs across chromosomes:
-
+```
 library(ggplot2)
 library(dplyr)
 
@@ -118,3 +119,7 @@ ggsave(
   height = 6,
   dpi = 300
 )
+```
+run the script with Rscript rplot.r. But first load R and ggplot 
+module load R
+module load R-bundle-CRAN/2025.10-foss-2025a
