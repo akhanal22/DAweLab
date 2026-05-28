@@ -11,4 +11,4 @@ python dotplot_TE_auto_xy.py \
   --end 2400000 \
   --output b73all_chr4.png
 2. snv_calling.md has info about how snvs are called from longcallD
-3. 
+3. finding_genic_intergenic_snv.md has the code for finding count of snvs that are on genic/intergenic region
