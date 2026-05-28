@@ -15,29 +15,51 @@ mkdir -p per_Sample_genic_intergenic
 ```
 3)Now, extract the information for the count of snps that fall in genic vs intergenic region for which i use the for loop
 ```
+echo -e "sample\tgt_type\ttotal\tgenic\tintergenic" \
+> per_sample_genic_intergenic/private_snp_genic_intergenic_counts.tsv
+
 for sample in $(bcftools query -l private_snvs.only_one_linenob73d7b.vcf); do
     echo "Processing $sample"
 
+    # Make BED with genotype
     bcftools view -s "$sample" -m2 -M2 -v snps private_snvs.only_one_linenob73d7b.vcf \
     | bcftools view -i 'GT!="0/0" && GT!="./."' \
-    | bcftools query -f '%CHROM\t%POS0\t%POS\t%ID\n' \
-    > per_sample_genic_intergenic/${sample}.private_snps.bed
+    | bcftools query -f '%CHROM\t%POS0\t%POS\t%ID\t[%GT]\n' \
+    > per_sample_genic_intergenic/${sample}.private_snps.withGT.bed
 
-    bedtools intersect \
-        -a per_sample_genic_intergenic/${sample}.private_snps.bed \
-        -b j702_genes.bed \
-        -u \
-    > per_sample_genic_intergenic/${sample}.genic_private_snps.bed
+    # Separate heterozygous SNPs
+    awk '$5=="0/1" || $5=="1/0" || $5=="0|1" || $5=="1|0"' \
+    per_sample_genic_intergenic/${sample}.private_snps.withGT.bed \
+    > per_sample_genic_intergenic/${sample}.het_private_snps.bed
 
-    bedtools intersect \
-        -a per_sample_genic_intergenic/${sample}.private_snps.bed \
-        -b j702_genes.bed \
-        -v \
-    > per_sample_genic_intergenic/${sample}.intergenic_private_snps.bed
+    # Separate homozygous ALT SNPs
+    awk '$5=="1/1" || $5=="1|1"' \
+    per_sample_genic_intergenic/${sample}.private_snps.withGT.bed \
+    > per_sample_genic_intergenic/${sample}.hom_private_snps.bed
 
-    total=$(wc -l < per_sample_genic_intergenic/${sample}.private_snps.bed)
-    genic=$(wc -l < per_sample_genic_intergenic/${sample}.genic_private_snps.bed)
-    intergenic=$(wc -l < per_sample_genic_intergenic/${sample}.intergenic_private_snps.bed)
+    for type in het hom; do
+
+        bedtools intersect \
+            -a per_sample_genic_intergenic/${sample}.${type}_private_snps.bed \
+            -b j702_genes.bed \
+            -u \
+        > per_sample_genic_intergenic/${sample}.${type}_genic_private_snps.bed
+
+        bedtools intersect \
+            -a per_sample_genic_intergenic/${sample}.${type}_private_snps.bed \
+            -b j702_genes.bed \
+            -v \
+        > per_sample_genic_intergenic/${sample}.${type}_intergenic_private_snps.bed
+
+        total=$(wc -l < per_sample_genic_intergenic/${sample}.${type}_private_snps.bed)
+        genic=$(wc -l < per_sample_genic_intergenic/${sample}.${type}_genic_private_snps.bed)
+        intergenic=$(wc -l < per_sample_genic_intergenic/${sample}.${type}_intergenic_private_snps.bed)
+
+        echo -e "$sample\t$type\t$total\t$genic\t$intergenic" \
+        >> per_sample_genic_intergenic/private_snp_genic_intergenic_counts.tsv
+
+    done
+done
     ```
     
 
