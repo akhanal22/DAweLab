@@ -1,4 +1,4 @@
-The pyhton file dotplot_TE_fixed.py contains the code to get dotplot for soecific region of genome and overap it with the TE annotations. Run it as follows:
+1. The pyhton file dotplot_TE_fixed.py contains the code to get dotplot for soecific region of genome and overap it with the TE annotations. Run it as follows:
 python dotplot_TE_auto_xy.py \
   --paf chr4_RagTag_RagTag_1kb.paf \
   --ref_gff J702_raw_intact.renamed.gff3 \
@@ -10,3 +10,5 @@ python dotplot_TE_auto_xy.py \
   --start 2200000 \
   --end 2400000 \
   --output b73all_chr4.png
+2. snv_calling.md has info about how snvs are called from longcallD
+3. 
