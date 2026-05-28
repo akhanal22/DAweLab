@@ -1,5 +1,5 @@
 I begin with the merge vcf for all individuals  (except b73all and b73d7b, although the file says nob73d7b only it actually doesnot have b73all too) but only private or unique vcf for 
-each individual are present. The following module were loaded for this analysis
+each individual are present.This vcf was created from seven_lines.merged.vcf.gz file by selecting only private snvsthat i am interested in. The code can be found in "snv_calling" scripts in the same directory.  The following module were loaded for this analysis
 module load BCFtools/1.23.1-GCC-13.3.0
 module load BEDTools/2.31.1-GCC-13.3.0
 
