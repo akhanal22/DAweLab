@@ -66,3 +66,55 @@ done
     echo -e "$sample\t$total\t$genic\t$intergenic"
 
 done > per_sample_genic_intergenic/private_snp_genic_intergenic_counts.tsv
+
+Now to make the figure for snp distribution, First make one combined BED with SNP type:
+
+awk -v s="$sample" 'BEGIN{OFS="\t"} {print $1,$2,$3,$4,"het"}' \
+per_sample_genic_intergenic/${sample}.het_private_snps.bed \
+> ${sample}.private_snps.plot.bed
+
+awk -v s="$sample" 'BEGIN{OFS="\t"} {print $1,$2,$3,$4,"hom"}' \
+per_sample_genic_intergenic/${sample}.hom_private_snps.bed \
+>> ${sample}.private_snps.plot.bed
+
+Then use this R code to plot SNPs across chromosomes:
+
+library(ggplot2)
+library(dplyr)
+
+sample <- "B73D1.sorted.bam"
+
+snps <- read.table(
+  paste0(sample, ".private_snps.plot.bed"),
+  header = FALSE,
+  sep = "\t"
+)
+
+colnames(snps) <- c("chr", "start", "end", "id", "gt_type")
+
+snps <- snps %>%
+  mutate(
+    pos_mb = end / 1e6,
+    chr = factor(chr, levels = unique(chr))
+  )
+
+ggplot(snps, aes(x = pos_mb, y = chr, color = gt_type)) +
+  geom_point(size = 1.6, alpha = 0.7) +
+  theme_bw() +
+  labs(
+    x = "Position on chromosome (Mb)",
+    y = "Chromosome",
+    color = "Genotype",
+    title = paste("Private SNP distribution:", sample)
+  ) +
+  theme(
+    panel.grid.minor = element_blank(),
+    axis.text.y = element_text(size = 10)
+  )
+
+ggsave(
+  paste0(sample, "_private_snps_chromosome_distribution.png"),
+  width = 10,
+  height = 6,
+  dpi = 300
+)
