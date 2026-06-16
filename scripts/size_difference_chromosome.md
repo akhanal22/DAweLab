@@ -148,3 +148,29 @@ $OUTDIR/${SAMPLE}.nonTE_delta_per_chr.tsv \
 $OUTDIR/${SAMPLE}.AGP_gap_SV_delta_per_chr.tsv \
 > $OUTDIR/${SAMPLE}.chromosome_size_accounting.with_AGPgapSVs.tsv
 ```
+Okay i think not_al and residual makes it confusing so i will only have residual for all unaligned parts
+```
+awk 'BEGIN{OFS="\t"}
+NR==1{
+    print "Chr",
+          "Observed_J702_minus_B73D1",
+          "AGP_gap_SV_delta",
+          "TE_SV_delta",
+          "nonTE_SV_delta",
+          "Explained_delta",
+          "Residual_unexplained"
+    next
+}
+{
+    obs=$2
+    agp=$4
+    te=$5
+    nonte=$6
+
+    explained = agp + te + nonte
+    residual = obs - explained
+
+    print $1, obs, agp, te, nonte, explained, residual
+}' B73D1.chromosome_size_accounting.with_AGPgapSVs.tsv \
+> B73D1.chromosome_size_accounting.no_NOTAL.tsv
+```
