@@ -359,7 +359,63 @@ END{
 ```
 
 
+okAy now to estimate genome size based on deepvariant
+```
+#!/bin/bash
 
+MIN_GQ=30
+MIN_DP=20
+
+regions=$(printf "chr%s_RagTag," {1..10} | sed 's/,$//')
+
+for gvcf in \
+    B73D2.deepvariant.g.vcf.gz \
+    B73D4.deepvariant.g.vcf.gz \
+    B73D7c.deepvariant.g.vcf.gz \
+    B73D10.deepvariant.g.vcf.gz
+do
+
+    sample=$(basename "$gvcf" .deepvariant.g.vcf.gz)
+
+    echo "Processing $sample ..."
+
+    bcftools query \
+        -r "$regions" \
+        -f '%CHROM\t%POS\t%INFO/END[\t%GT\t%GQ\t%MIN_DP\t%DP]\n' \
+        "$gvcf" |
+    awk -v sample="$sample" \
+        -v mingq="$MIN_GQ" \
+        -v mindp="$MIN_DP" '
+    {
+        start=$2
+        end=$3
+
+        # Single-base record if END is absent
+        if(end=="." || end=="")
+            end=start
+
+        gt=$4
+        gq=$5
+        min_dp=$6
+        dp=$7
+
+        # Reference blocks use MIN_DP;
+        # variant records generally use DP
+        if(min_dp!="." && min_dp!="")
+            depth=min_dp
+        else
+            depth=dp
+
+        # Count confidently callable bases
+        if(gt!="./." && gt!=".|." && gq>=mingq && depth>=mindp)
+            callable += end-start+1
+    }
+    END{
+        print sample "\t" callable
+    }'
+
+done
+```
 
 
 
