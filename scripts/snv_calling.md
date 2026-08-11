@@ -429,7 +429,7 @@ do
 
 done
 ```
-
+```
 bcftools view \
     -f PASS \
     -v snps \
@@ -438,53 +438,33 @@ bcftools view \
     -Oz \
     -o five_lines.merged.pass.snps.vcf.gz
 
-bcftools index -t five_lines.merged.pass.snps.vcf.gz
-ak18787@ss-sub4 private_snps$ bcftools +setGT \
-    five_lines.merged.pass.snps.vcf.gz \
+```
+get private snps only. each vcf were already filtered for dp<40 GQ<30 and qual>50 and normalized and variant shared with J702 were removed.
+```
+bcftools view \
+    -m2 -M2 \
+    -v snps \
+    -i 'COUNT(GT="alt")=1' \
+    five_lines.merged.filtered.vcf.gz \
     -Oz \
-    -o five_lines.merged.filtered.vcf.gz \
-    -- \
-    -t q \
-    -n . \
-    -i 'FMT/DP<20 || FMT/GQ<30 ||
-        (GT="hom" && GT!="RR" &&
-         FMT/AD[:1]/(FMT/AD[:0]+FMT/AD[:1])<0.90) ||
-        (GT="het" &&
-         (FMT/AD[:1]/(FMT/AD[:0]+FMT/AD[:1])<0.30 ||
-          FMT/AD[:1]/(FMT/AD[:0]+FMT/AD[:1])>0.70))'
-Filled 29048 alleles
-ak18787@ss-sub4 private_snps$ gunzip five_lines.merged.filtered.vcf.gz
-ak18787@ss-sub4 private_snps$ awk '
+    -o private_snvs.only_one_line.vcf.gz
+
+bcftools index -c private_snvs.only_one_line.vcf.gz
+```
+count private snps
+```
+bcftools query \
+    -f '[%SAMPLE\t%GT\n]' \
+    private_snvs.only_one_line.vcf.gz |
+awk '
 BEGIN{OFS="\t"}
-/^#CHROM/{
-  for(i=10;i<=NF;i++) sample[i]=$i
-  next
-}
-!/^#/{
-  for(i=10;i<=NF;i++){
-    gt=$i
-    split(gt,a,":")
-    if(a[1]=="0/1" || a[1]=="1/0" || a[1]=="1/1" || a[1]=="0|1" || a[1]=="1|0" || a[1]=="1|1"){
-      count[sample[i]]++
-    }
-  }
+$2=="0/1" || $2=="1/0" || $2=="1/1" ||
+$2=="0|1" || $2=="1|0" || $2=="1|1" {
+    count[$1]++
 }
 END{
-  for(s in count) print s, count[s]
-}' five_lines.merged.filtered.vcf > private_snv_counts.tsv
-ak18787@ss-sub4 private_snps$ more private_snv_counts.tsv
-B73D7c  3756
-B73D4   3811
-B73D10  3427
-B73D1   3502
-B73D2   3673
-
-
-
-
-
-
-
-
-
-
+    print "Sample","Private_SNVs"
+    for(s in count)
+        print s,count[s]
+}' > private_snv_counts.tsv
+```
