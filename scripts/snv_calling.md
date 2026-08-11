@@ -364,20 +364,21 @@ okAy now to estimate genome size based on deepvariant
 #!/bin/bash
 
 MIN_GQ=30
-MIN_DP=20
+MIN_DP=40
 
 regions=$(printf "chr%s_RagTag," {1..10} | sed 's/,$//')
 
 for gvcf in \
-    B73D2.deepvariant.g.vcf.gz \
-    B73D4.deepvariant.g.vcf.gz \
-    B73D7c.deepvariant.g.vcf.gz \
-    B73D10.deepvariant.g.vcf.gz
+B73D1.deepvariant.g.vcf.gz \
+B73D2.deepvariant.g.vcf.gz \
+B73D4.deepvariant.g.vcf.gz \
+B73D10.deepvariant.g.vcf.gz \
+B73D7c.deepvariant.g.vcf.gz
 do
 
     sample=$(basename "$gvcf" .deepvariant.g.vcf.gz)
 
-    echo "Processing $sample ..."
+    echo "Processing $sample ..." >&2
 
     bcftools query \
         -r "$regions" \
@@ -390,7 +391,7 @@ do
         start=$2
         end=$3
 
-        # Single-base record if END is absent
+        # If END is absent, this record represents one base
         if(end=="." || end=="")
             end=start
 
@@ -399,18 +400,30 @@ do
         min_dp=$6
         dp=$7
 
-        # Reference blocks use MIN_DP;
-        # variant records generally use DP
+        # DeepVariant reference blocks generally use MIN_DP.
+        # Variant records generally use DP.
         if(min_dp!="." && min_dp!="")
             depth=min_dp
         else
             depth=dp
 
-        # Count confidently callable bases
-        if(gt!="./." && gt!=".|." && gq>=mingq && depth>=mindp)
-            callable += end-start+1
+        # Skip missing genotypes
+        if(gt=="./." || gt==".|." || gt==".")
+            next
+
+        # GQ < 30 fails
+        if(gq=="." || gq < mingq)
+            next
+
+        # DP <= 40 fails
+        if(depth=="." || depth <= mindp)
+            next
+
+        # Count all bases represented by this passing gVCF record
+        callable += end-start+1
     }
-    END{
+
+    END {
         print sample "\t" callable
     }'
 
