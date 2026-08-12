@@ -470,5 +470,79 @@ bcftools index -c "$normvcf"
 echo "Finished normalization for $file"
 date
 ```
+Step 5. filtering for snps od depth <40 , GQ <30, QUAL <50 and homozygous reads to have coverage > 90% and heterozygous to have read support of atleast 30-70%. 
+```
+samples="B73D1 B73D2 B73D4 B73D7c B73D10 J702"
 
+for sample in $samples
+do
+    echo "Processing ${sample}..."
 
+    bcftools filter \
+        -e 'QUAL<50 || FILTER!="PASS" || FORMAT/DP<40 || FORMAT/GQ<30' \
+        ${sample}.deepvariant.pass.indels.norm.vcf.gz \
+        -Ou | \
+    bcftools view \
+        -i '(
+            GT="1/1" &&
+            FORMAT/AD[0:1]/(FORMAT/AD[0:0]+FORMAT/AD[0:1]) >= 0.90
+        ) || (
+            GT="0/1" &&
+            FORMAT/AD[0:1]/(FORMAT/AD[0:0]+FORMAT/AD[0:1]) >= 0.30 &&
+            FORMAT/AD[0:1]/(FORMAT/AD[0:0]+FORMAT/AD[0:1]) <= 0.70
+        )' \
+        -Oz \
+        -o ${sample}.deepvariant.indels.norm.rigorous.vcf.gz
+
+    bcftools index -t ${sample}.deepvariant.indels.norm.rigorous.vcf.gz
+
+    echo -n "${sample} retained indels: "
+    bcftools view -H ${sample}.deepvariant.indels.norm.rigorous.vcf.gz | wc -l
+
+done
+```
+Step 6. Remove the indels that is shared with J702
+```
+while read file; do
+    invcf="${file}.deepvariant.indels.norm.rigorous.vcf.gz"
+    outvcf="${file}.deepvariant.indels.rigorous.norm.noJ702.vcf.gz"
+
+    echo "Removing J702-shared SNPs from $file"
+    echo "Input:  $invcf"
+    echo "Output: $outvcf"
+
+    bcftools isec \
+      -n=1 -w1 \
+      "$invcf" \
+      J702.ldeepvariant.indels.norm.rigorous.vcf.gz \
+      -Oz -o "$outvcf"
+
+    bcftools index -c "$outvcf"
+
+done < allname.lst
+```
+step 7. Merge all and select the unique indels only
+```
+module load BCFtools/1.21-GCC-13.3.0
+bcftools merge   -l vcf.list   -Oz   -o five_lines.merged.vcf.gz # vcflist is the list of vcf files after rigorous filtering
+bcftools index -c seven_lines.merged.vcf.gz
+bcftools view   -m2 -M2 -v indels   -i 'COUNT(GT="alt")=1'   -Oz   -o private_indels.only_one_line.vcf.gz   seven_lines.merged.vcf.gz
+bcftools index -c private_indels.only_one_line.vcf.gz
+ awk '
+BEGIN{OFS="\t"}
+/^#CHROM/{
+  for(i=10;i<=NF;i++) sample[i]=$i
+  next
+}
+!/^#/{
+  for(i=10;i<=NF;i++){
+    gt=$i
+    split(gt,a,":")
+    if(a[1]=="0/1" || a[1]=="1/0" || a[1]=="1/1" || a[1]=="0|1" || a[1]=="1|0" || a[1]=="1|1"){
+      count[sample[i]]++
+    }
+  }
+}
+END{
+  for(s in count) print s, count[s]
+}' private_indels.only_one_line.vcf > private_indels_counts.tsv
