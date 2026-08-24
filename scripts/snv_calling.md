@@ -54,13 +54,23 @@ longcallD call \
 ```
   Now, the rigourous filtering only for confident snps
   ```
-   bcftools filter   -e 'QUAL<50 || FILTER!="PASS" || FORMAT/DP<40 || FORMAT/GQ<30'   B73D1.longcallD.snps.vcf -Ou | bcftools view   -i '(
-        GT="1|1" && FORMAT/AD[0:1]/FORMAT/DP >= 0.90
+   bcftools filter \
+  -e 'FILTER!="PASS" || FORMAT/DP<40 || FORMAT/DP>100 || FORMAT/GQ<20' \
+  B73D1.longcallD.snps.vcf \
+  -Ou |
+bcftools view \
+  -i '(
+        GT="1|1" &&
+        FORMAT/AD[0:1]/FORMAT/DP >= 0.90
       ) || (
         (GT="0|1" || GT="1|0") &&
         FORMAT/AD[0:1]/FORMAT/DP >= 0.30 &&
         FORMAT/AD[0:1]/FORMAT/DP <= 0.70
-      )'   -Oz -o B73D1.longcallD.snps.rigorous.vcf
+      )' \
+  -Oz \
+  -o B73D1.longcallD.snps.DP40-100.GQ20.rigorous.vcf.gz
+
+bcftools index -t B73D1.longcallD.snps.DP40-100.GQ20.rigorous.vcf.gz
 
   ```
 
