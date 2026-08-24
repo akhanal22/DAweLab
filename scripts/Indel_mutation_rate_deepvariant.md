@@ -479,7 +479,7 @@ do
     echo "Processing ${sample}..."
 
     bcftools filter \
-        -e 'QUAL<50 || FILTER!="PASS" || FORMAT/DP<40 || FORMAT/GQ<30' \
+        -e 'FILTER!="PASS" || FORMAT/DP<40 || FORMAT/GQ<20' \
         ${sample}.deepvariant.pass.indels.norm.vcf.gz \
         -Ou | \
     bcftools view \
@@ -525,8 +525,8 @@ step 7. Merge all and select the unique indels only
 ```
 module load BCFtools/1.21-GCC-13.3.0
 bcftools merge   -l vcf.list   -Oz   -o five_lines.merged.vcf.gz # vcflist is the list of vcf files after rigorous filtering
-bcftools index -c seven_lines.merged.vcf.gz
-bcftools view   -m2 -M2 -v indels   -i 'COUNT(GT="alt")=1'   -Oz   -o private_indels.only_one_line.vcf.gz   seven_lines.merged.vcf.gz
+bcftools index -c five_lines.merged.vcf.gz
+bcftools view   -m2 -M2 -v indels   -i 'COUNT(GT="alt")=1'   -Oz   -o private_indels.only_one_line.vcf.gz   five_lines.merged.vcf.gz
 bcftools index -c private_indels.only_one_line.vcf.gz
  awk '
 BEGIN{OFS="\t"}
