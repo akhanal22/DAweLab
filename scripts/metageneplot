@@ -1,0 +1,120 @@
+. Make a strand-aware gene BED file
+
+Your Liftoff annotation already contains gene features:
+
+gff="J702.liftoff.gff3"
+
+awk -F'\t' '
+BEGIN {OFS="\t"}
+$0 !~ /^#/ && $3=="gene" && $1 ~ /^chr([1-9]|10)_RagTag$/ {
+    id=$9
+    sub(/^.*ID=/,"",id)
+    sub(/;.*/,"",id)
+
+    print $1,$4-1,$5,id,0,$7
+}' "$gff" |
+sort -k1,1 -k2,2n \
+> J702.genes.bed
+
+The six BED columns are:
+
+chromosome  start  end  gene_ID  score  strand
+
+The strand column is essential: deepTools will orient negative-strand genes so that every gene runs from TSS to TES in the plot.
+
+2. Convert indels to one-base event positions
+
+For a metagene event-density plot, represent each indel by its starting position rather than its deleted sequence length:
+
+bcftools query \
+    -f '%CHROM\t%POS0\t%POS\n' \
+    private_deepvariant_indels.vcf.gz |
+awk '$1 ~ /^chr([1-9]|10)_RagTag$/' |
+sort -k1,1 -k2,2n \
+> private_indels.positions.bed
+
+This prevents a 100-bp deletion from contributing 100 times more signal than a one-base deletion. Each indel represents one mutation event.
+
+3. Make chromosome sizes
+samtools faidx J702_flip.fa
+
+awk '$1 ~ /^chr([1-9]|10)_RagTag$/' \
+    J702_flip.fa.fai |
+cut -f1,2 \
+> J702.chr1-10.sizes
+4. Convert indel events to bedGraph and bigWig
+bedtools genomecov \
+    -bg \
+    -i private_indels.positions.bed \
+    -g J702.chr1-10.sizes \
+> private_indels.bedGraph
+
+Sort it:
+
+LC_ALL=C sort -k1,1 -k2,2n \
+    private_indels.bedGraph \
+> private_indels.sorted.bedGraph
+
+Convert to bigWig:
+
+bedGraphToBigWig \
+    private_indels.sorted.bedGraph \
+    J702.chr1-10.sizes \
+    private_indels.bw
+
+If bedGraphToBigWig is unavailable, it can normally be installed with:
+
+conda install -c bioconda ucsc-bedgraphtobigwig
+5. Scale all genes to the same length
+
+This example uses:
+
+20 kb upstream
+100 normalized gene-body bins
+20 kb downstream
+200-bp bins in the flanking regions
+A scaled gene-body length of 20 kb
+computeMatrix scale-regions \
+    -S private_indels.bw \
+    -R J702.genes.bed \
+    --beforeRegionStartLength 20000 \
+    --regionBodyLength 20000 \
+    --afterRegionStartLength 20000 \
+    --binSize 200 \
+    --missingDataAsZero \
+    --skipZeros \
+    --numberOfProcessors 8 \
+    -o private_indels.metagene.matrix.gz \
+    --outFileNameMatrix private_indels.metagene.matrix.tsv
+
+However, remove --skipZeros if you want the true average across all genes, including genes containing no indels:
+
+computeMatrix scale-regions \
+    -S private_indels.bw \
+    -R J702.genes.bed \
+    --beforeRegionStartLength 20000 \
+    --regionBodyLength 20000 \
+    --afterRegionStartLength 20000 \
+    --binSize 200 \
+    --missingDataAsZero \
+    --numberOfProcessors 8 \
+    -o private_indels.metagene.matrix.gz \
+    --outFileNameMatrix private_indels.metagene.matrix.tsv
+
+For your question, the second version is correct. Using --skipZeros would retain only genes near indels and inflate the average.
+
+6. Plot the average indel profile
+plotProfile \
+    -m private_indels.metagene.matrix.gz \
+    --plotType lines \
+    --averageType mean \
+    --startLabel TSS \
+    --endLabel TES \
+    --regionsLabel "All genes" \
+    --samplesLabel "Private indels" \
+    --yAxisLabel "Mean indel density" \
+    --plotTitle "Distribution of indels across maize genes" \
+    --plotFile private_indels.metagene_profile.pdf \
+    --outFileNameData private_indels.metagene_profile.tsv
+
+You can also make a PNG:
