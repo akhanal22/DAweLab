@@ -375,6 +375,7 @@ okAy now to estimate genome size based on deepvariant
 
 MIN_GQ=30
 MIN_DP=40
+MAX_DP=100
 
 regions=$(printf "chr%s_RagTag," {1..10} | sed 's/,$//')
 
