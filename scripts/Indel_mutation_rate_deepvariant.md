@@ -470,7 +470,7 @@ bcftools index -c "$normvcf"
 echo "Finished normalization for $file"
 date
 ```
-Step 5. filtering for snps od depth <40 , GQ <30, QUAL <50 and homozygous reads to have coverage > 90% and heterozygous to have read support of atleast 30-70%. 
+Step 5. filtering for snps od depth <40  and depth > 100, GQ <30, and homozygous reads to have coverage > 90% and heterozygous to have read support of atleast 30-70%. 
 ```
 samples="B73D1 B73D2 B73D4 B73D7c B73D10 J702"
 
@@ -479,7 +479,7 @@ do
     echo "Processing ${sample}..."
 
     bcftools filter \
-        -e 'FILTER!="PASS" || FORMAT/DP<40 || FORMAT/GQ<20' \
+        -e 'FILTER!="PASS" || FORMAT/DP<40 || FORMAT/DP>100 || FORMAT/GQ<30' \
         ${sample}.deepvariant.pass.indels.norm.vcf.gz \
         -Ou | \
     bcftools view \
@@ -514,7 +514,7 @@ while read file; do
     bcftools isec \
       -n=1 -w1 \
       "$invcf" \
-      J702.ldeepvariant.indels.norm.rigorous.vcf.gz \
+      J702.deepvariant.vcf.gz \
       -Oz -o "$outvcf"
 
     bcftools index -c "$outvcf"
