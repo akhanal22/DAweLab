@@ -1,4 +1,3 @@
-
 This is the code used for calling snvs using long read pacbio hifi data, I already had the bam file that was made using minimap2 by mapping raw reads against the J702 modified reference genomes.
 So I used longcall (Version: 0.0.8) to run following script 
 ```
