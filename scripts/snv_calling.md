@@ -22,7 +22,7 @@ conda activate base
 
 file=$(sed -n "${SLURM_ARRAY_TASK_ID}p" linename.lst | tr -d '\r' | xargs)
 
-ref="../J702_v3_modified_ragtag_re/ragtag.scaffold.fasta"
+ref="../J702_v3_modified_ragtag_re/J702_flip.fa"
 bam="${file}.sorted.bam"
 outdir="vcf_against_j702_snvs_longcall"
 
@@ -52,51 +52,36 @@ longcallD call \
   ```
   bcftools view -v snps B73D1.longcallD.vcf -Oz -o B73D1.longcallD.snps.vcf
 ```
-  Now, the rigourous filtering only for confident snps
-  ```
-   bcftools filter \
-  -e 'FILTER!="PASS" || FORMAT/DP<40 || FORMAT/DP>100 || FORMAT/GQ<20' \
-  B73D1.longcallD.snps.vcf \
-  -Ou |
-bcftools view \
-  -i '(
-        GT="1|1" &&
-        FORMAT/AD[0:1]/FORMAT/DP >= 0.90
-      ) || (
-        (GT="0|1" || GT="1|0") &&
-        FORMAT/AD[0:1]/FORMAT/DP >= 0.30 &&
-        FORMAT/AD[0:1]/FORMAT/DP <= 0.70
-      )' \
-  -Oz \
-  -o B73D1.longcallD.snps.DP40-100.GQ20.rigorous.vcf.gz
 
-bcftools index -t B73D1.longcallD.snps.DP40-100.GQ20.rigorous.vcf.gz
-
-  ```
-
-Same filtering was applied for all other individuals
-Now to be sure that the variant are accurate and not generated due to sequencing error, i filtered out the snvs that were present in J702 using following code but first i normalized the vcf for each of them
+Normalize according to J702 positions
 ```
-#SBATCH --array=1-7
-#SBATCH --output=%x.%A_%a.out
-#SBATCH --error=%x.%A_%a.err
+#!/bin/bash
+#SBATCH --job-name=longcall_J702
+#SBATCH --partition=batch
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=100G
+#SBATCH --time=72:00:00
+#SBATCH --array=1-6
+#SBATCH --output=deepvariant_%A_%a.out
+#SBATCH --error=deepvariant_%A_%a.err
 #SBATCH --mail-user=ak18787@uga.edu
 #SBATCH --mail-type=END,FAIL
-
-set -euo pipefail
+#SBATCH --export=ALL
 
 source ~/ENTER/etc/profile.d/conda.sh
 conda activate base
-
+module load BCFtools/1.23.1-GCC-13.3.0
 # reference used for mapping/calling
-ref="../../J702_v3_modified_ragtag_re/ragtag.scaffold.fasta"
+ref="/scratch/ak18787/B73_project/J702_v3_modified_ragtag_re/J702_flip.fa"
 
 # sample name from list
-file=$(sed -n "${SLURM_ARRAY_TASK_ID}p" linename.lst | tr -d '\r' | xargs)
+file=$(sed -n "${SLURM_ARRAY_TASK_ID}p" allname.lst | tr -d '\r' | xargs)
 
 
-gzvcf="${file}.longcallD.snps.rigorous.vcf.gz"
-normvcf="${file}.longcallD.snps.rigorous.norm.vcf.gz"
+gzvcf="${file}.longcallD.snps.vcf.gz"
+normvcf="${file}.longcallD.snps.norm.vcf.gz"
 
 echo "Sample: $file"
 #echo "Input VCF: $invcf"
@@ -123,7 +108,7 @@ bcftools norm \
   -f "$ref" \
   -Oz \
   -o "$normvcf" \
-  "$gzvcf"
+"$gzvcf"
 
 # index normalized output
 bcftools index -c "$normvcf"
@@ -132,11 +117,49 @@ echo "Finished normalization for $file"
 date
 ```
 
-After normalization, I finally do the filtering
+  Now, the rigourous filtering only for confident snps
+
+  ```
+   samples="B73D1 B73D2 B73D4 B73D7c B73D10 J702"
+
+for sample in $samples
+do
+    echo "Processing ${sample}..."
+
+    bcftools filter \
+        -e 'FILTER!="PASS" || FORMAT/DP<40 || FORMAT/DP>100 || FORMAT/GQ<30' \
+        "${sample}.longcallD.snps.norm.vcf.gz" \
+        -Ou |
+    bcftools view \
+        -i '(
+              GT="1|1" &&
+              FORMAT/AD[0:1]/FORMAT/DP >= 0.90
+            ) || (
+              (GT="0|1" || GT="1|0") &&
+              FORMAT/AD[0:1]/FORMAT/DP >= 0.30 &&
+              FORMAT/AD[0:1]/FORMAT/DP <= 0.70
+            )' \
+        -Oz \
+        -o "${sample}.longcallD.snps.DP40-100.GQ20.rigorous.vcf.gz"
+
+    bcftools index -f -t \
+        "${sample}.longcallD.snps.DP40-100.GQ20.rigorous.vcf.gz"
+
+    echo -n "${sample} retained SNPs: "
+    bcftools view -H \
+        "${sample}.longcallD.snps.DP40-100.GQ20.rigorous.vcf.gz" |
+        wc -l
+
+done
+
+
+  ```
+
+ Remove the indels that is shared with J702
 ```
 while read file; do
-    invcf="${file}.longcallD.snps.rigorous.norm.vcf.gz"
-    outvcf="${file}.longcallD.snps.rigorous.norm.noJ702.vcf.gz"
+    invcf="${file}.longcallD.snps.DP40-100.GQ20.rigorous.vcf.gz"
+    outvcf="${file}.longcallD.snps.DP40-100.GQ20.rigorous.noJ702.vcf.gz"
 
     echo "Removing J702-shared SNPs from $file"
     echo "Input:  $invcf"
@@ -150,16 +173,18 @@ while read file; do
 
     bcftools index -c "$outvcf"
 
-done < linename.lst
+done < name.lst
 
 ```
-For estimating mutation rate, we usually look for prive snvs, because we want to focus on new mutation that arose independently per generation, If it is common across individual, it could easily just be background mutation present in the founder line i.e. J702. So, I generate the merge vcf file first using bcftools and count the private snvs as below:
+MErge all and select unique snps
 ```
+Merge all and select the unique indels only
+
 module load BCFtools/1.21-GCC-13.3.0
-bcftools merge   -l vcf.list   -Oz   -o seven_lines.merged.vcf.gz # vcflist is the list of vcf files after rigorous filtering
-bcftools index -c seven_lines.merged.vcf.gz
-bcftools view   -m2 -M2 -v snps   -i 'COUNT(GT="alt")=1'   -Oz   -o private_snvs.only_one_line.vcf.gz   seven_lines.merged.vcf.gz
-bcftools index -c private_snvs.only_one_line.vcf.gz
+bcftools merge   -l vcf.list   -Oz   -o five_lines.merged.vcf.gz # vcflist is the list of vcf files after rigorous filtering
+bcftools index -c five_lines.merged.vcf.gz
+bcftools view   -m2 -M2 -v indels   -i 'COUNT(GT="alt")=1'   -Oz   -o private_snps.only_one_line.vcf.gz   five_lines.merged.vcf.gz
+bcftools index -c private_snps.only_one_line.vcf.gz
  awk '
 BEGIN{OFS="\t"}
 /^#CHROM/{
@@ -177,305 +202,74 @@ BEGIN{OFS="\t"}
 }
 END{
   for(s in count) print s, count[s]
-}' private_snvs.only_one_line.vcf > private_snv_counts.tsv
+}' private_snps.only_one_line.vcf > private_snps_counts.tsv
 ```
-However, since, B73D4 and B73all were same for 33 generations and B73D7b and B73D7c were same until 15 generation , I found the common snps across them using following code
+But i counted from chr1-10 only so i removed the vcf called for unscaffolded region
 ```
-bcftools view -m2 -M2 -v snps seven_lines.merged.vcf.gz \
-| awk '
-BEGIN{OFS="\t"}
-
-function is_alt(gt_field){
-  split(gt_field,a,":")
-  gt=a[1]
-  return (gt=="0/1" || gt=="1/0" || gt=="1/1" || gt=="0|1" || gt=="1|0" || gt=="1|1")
-}
-
-/^#CHROM/{
-  for(i=10;i<=NF;i++){
-    sample[$i]=i
-  }
-  next
-}
-
-!/^#/{
-  d4     = is_alt($sample["B73D4.sorted.bam"])
-  all    = is_alt($sample["B73all.sorted.bam"])
-  d7b    = is_alt($sample["B73D7B.sorted.bam"])
-  d7c    = is_alt($sample["B73D7C.sorted.bam"])
-
-  if(d4 && all){
-    count["B73D4_B73all_shared"]++
-  }
-
-  if(d7b && d7c){
-    count["B73D7B_B73D7C_shared"]++
-  }
-}
-
-END{
-  print "Category","Count"
-  print "B73D4_B73all_shared", count["B73D4_B73all_shared"]+0
-  print "B73D7B_B73D7C_shared", count["B73D7B_B73D7C_shared"]+0
-}
-' > shared_snv_counts.tsv
+grep -v "ptg" private_snps.only_one_line.vcf | grep -v "scaf" > private_snps.only_chr1-10.vcf
 ```
-Based on this following table represents private snv counts for each (except B73D4) and shared snvs between B73D4 and B73all and B7D7B and B73D7C
-
-| Line | Private SNVs | Generations |
-|------|---------------|-------------|
-| B73D1 | 3520 | 33 |
-| B73D2 | 3580 | 33 |
-| B73D4+B73all | 3878 | 33 |
-| B73D7B | 2142 | 18 |
-| B73D7c | 2289 | 18 |
-| B73D10 | 3478 | 33 |
-| B73all | 770 | 2 |
-| B73D7B+B73D7C | 1787 | 15 | 
-| **Total** | **21444** | **185** |
-
-Now we calculate the mutation rate as below:
-
-For estimating mutation  rate:
-Total unique SNVs (sum all) = 21444
-Total generation = 185
-Genome size = 2.1gb
-Mutation rate = Total snvs/(2 * genome size * total generations)  
-	          = 2.76* 10 ^-8/ site/generation 
-
-
-
-Following the approach from arabidopsis paper, lets count private heterozygous and homozygous mutation first:
+then used the same approach above to count
 ```
-bcftools view -m2 -M2 -v snps seven_lines.merged.vcf.gz \
-| awk '
-BEGIN{OFS="\t"}
-
-function gt_type(gt_field){
-  split(gt_field,a,":")
-  gt=a[1]
-
-  if(gt=="0/1" || gt=="1/0" || gt=="0|1" || gt=="1|0") return "het"
-  if(gt=="1/1" || gt=="1|1") return "hom"
-
-  return "ref"
-}
-
-/^#CHROM/{
-  for(i=10;i<=NF;i++){
-    sample[$i]=i
-  }
-  next
-}
-
-!/^#/{
-  d4  = gt_type($sample["B73D4.sorted.bam"])
-  all = gt_type($sample["B73all.sorted.bam"])
-  d7b = gt_type($sample["B73D7B.sorted.bam"])
-  d7c = gt_type($sample["B73D7C.sorted.bam"])
-
-  if(d4!="ref" && all!="ref"){
-    count["B73D4_B73all_shared_total"]++
-
-    if(d4=="het" && all=="het") count["B73D4_B73all_shared_het_het"]++
-    else if(d4=="hom" && all=="hom") count["B73D4_B73all_shared_hom_hom"]++
-    else count["B73D4_B73all_shared_mixed_het_hom"]++
-  }
-
-  if(d7b!="ref" && d7c!="ref"){
-    count["B73D7B_B73D7C_shared_total"]++
-
-    if(d7b=="het" && d7c=="het") count["B73D7B_B73D7C_shared_het_het"]++
-    else if(d7b=="hom" && d7c=="hom") count["B73D7B_B73D7C_shared_hom_hom"]++
-    else count["B73D7B_B73D7C_shared_mixed_het_hom"]++
-  }
-}
-
-END{
-  print "Category","Count"
-
-  print "B73D4_B73all_shared_total", count["B73D4_B73all_shared_total"]+0
-  print "B73D4_B73all_shared_het_het", count["B73D4_B73all_shared_het_het"]+0
-  print "B73D4_B73all_shared_hom_hom", count["B73D4_B73all_shared_hom_hom"]+0
-  print "B73D4_B73all_shared_mixed_het_hom", count["B73D4_B73all_shared_mixed_het_hom"]+0
-
-  print "B73D7B_B73D7C_shared_total", count["B73D7B_B73D7C_shared_total"]+0
-  print "B73D7B_B73D7C_shared_het_het", count["B73D7B_B73D7C_shared_het_het"]+0
-  print "B73D7B_B73D7C_shared_hom_hom", count["B73D7B_B73D7C_shared_hom_hom"]+0
-  print "B73D7B_B73D7C_shared_mixed_het_hom", count["B73D7B_B73D7C_shared_mixed_het_hom"]+0
-}
-' > shared_snv_counts_het_hom.tsv
-```
-Now shared count
-```
-bcftools view -m2 -M2 -v snps seven_lines.merged.vcf.gz \
-| awk '
-BEGIN{OFS="\t"}
-
-function gt_type(gt_field){
-  split(gt_field,a,":")
-  gt=a[1]
-
-  if(gt=="0/1" || gt=="1/0" || gt=="0|1" || gt=="1|0") return "het"
-  if(gt=="1/1" || gt=="1|1") return "hom"
-
-  return "ref"
-}
-
-/^#CHROM/{
-  for(i=10;i<=NF;i++){
-    sample[$i]=i
-  }
-  next
-}
-
-!/^#/{
-  d4  = gt_type($sample["B73D4.sorted.bam"])
-  all = gt_type($sample["B73all.sorted.bam"])
-  d7b = gt_type($sample["B73D7B.sorted.bam"])
-  d7c = gt_type($sample["B73D7C.sorted.bam"])
-
-  if(d4!="ref" && all!="ref"){
-    count["B73D4_B73all_shared_total"]++
-
-    if(d4=="het" && all=="het") count["B73D4_B73all_shared_het_het"]++
-    else if(d4=="hom" && all=="hom") count["B73D4_B73all_shared_hom_hom"]++
-    else count["B73D4_B73all_shared_mixed_het_hom"]++
-  }
-
-  if(d7b!="ref" && d7c!="ref"){
-    count["B73D7B_B73D7C_shared_total"]++
-
-    if(d7b=="het" && d7c=="het") count["B73D7B_B73D7C_shared_het_het"]++
-    else if(d7b=="hom" && d7c=="hom") count["B73D7B_B73D7C_shared_hom_hom"]++
-    else count["B73D7B_B73D7C_shared_mixed_het_hom"]++
-  }
-}
-
-END{
-  print "Category","Count"
-
-  print "B73D4_B73all_shared_total", count["B73D4_B73all_shared_total"]+0
-  print "B73D4_B73all_shared_het_het", count["B73D4_B73all_shared_het_het"]+0
-  print "B73D4_B73all_shared_hom_hom", count["B73D4_B73all_shared_hom_hom"]+0
-  print "B73D4_B73all_shared_mixed_het_hom", count["B73D4_B73all_shared_mixed_het_hom"]+0
-
-  print "B73D7B_B73D7C_shared_total", count["B73D7B_B73D7C_shared_total"]+0
-  print "B73D7B_B73D7C_shared_het_het", count["B73D7B_B73D7C_shared_het_het"]+0
-  print "B73D7B_B73D7C_shared_hom_hom", count["B73D7B_B73D7C_shared_hom_hom"]+0
-  print "B73D7B_B73D7C_shared_mixed_het_hom", count["B73D7B_B73D7C_shared_mixed_het_hom"]+0
-}
-' > shared_snv_counts_het_hom.tsv
-```
-
-
-okAy now to estimate genome size based on deepvariant
-```
-#!/bin/bash
-
-MIN_GQ=30
-MIN_DP=40
-MAX_DP=100
-
-regions=$(printf "chr%s_RagTag," {1..10} | sed 's/,$//')
-
-for gvcf in \
-B73D1.deepvariant.g.vcf.gz \
-B73D2.deepvariant.g.vcf.gz \
-B73D4.deepvariant.g.vcf.gz \
-B73D10.deepvariant.g.vcf.gz \
-B73D7c.deepvariant.g.vcf.gz
-do
-
-    sample=$(basename "$gvcf" .deepvariant.g.vcf.gz)
-
-    echo "Processing $sample ..." >&2
-
-    bcftools query \
-        -r "$regions" \
-        -f '%CHROM\t%POS\t%INFO/END[\t%GT\t%GQ\t%MIN_DP\t%DP]\n' \
-        "$gvcf" |
-    awk -v sample="$sample" \
-        -v mingq="$MIN_GQ" \
-        -v mindp="$MIN_DP" '
-    {
-        start=$2
-        end=$3
-
-        # If END is absent, this record represents one base
-        if(end=="." || end=="")
-            end=start
-
-        gt=$4
-        gq=$5
-        min_dp=$6
-        dp=$7
-
-        # DeepVariant reference blocks generally use MIN_DP.
-        # Variant records generally use DP.
-        if(min_dp!="." && min_dp!="")
-            depth=min_dp
-        else
-            depth=dp
-
-        # Skip missing genotypes
-        if(gt=="./." || gt==".|." || gt==".")
-            next
-
-        # GQ < 30 fails
-        if(gq=="." || gq < mingq)
-            next
-
-        # DP <= 40 fails
-        if(depth=="." || depth <= mindp)
-            next
-
-        # Count all bases represented by this passing gVCF record
-        callable += end-start+1
-    }
-
-    END {
-        print sample "\t" callable
-    }'
-
-done
-```
-```
-bcftools view \
-    -f PASS \
-    -v snps \
-    -i 'QUAL>=50' \
-    five_lines.merged.vcf.gz \
-    -Oz \
-    -o five_lines.merged.pass.snps.vcf.gz
-
-```
-get private snps only. each vcf were already filtered for dp<40 GQ<30 and qual>50 and normalized and variant shared with J702 were removed.
-```
-bcftools view \
-    -m2 -M2 \
-    -v snps \
-    -i 'COUNT(GT="alt")=1' \
-    five_lines.merged.filtered.vcf.gz \
-    -Oz \
-    -o private_snvs.only_one_line.vcf.gz
-
-bcftools index -c private_snvs.only_one_line.vcf.gz
-```
-count private snps
-```
-bcftools query \
-    -f '[%SAMPLE\t%GT\n]' \
-    private_snvs.only_one_line.vcf.gz |
 awk '
 BEGIN{OFS="\t"}
-$2=="0/1" || $2=="1/0" || $2=="1/1" ||
-$2=="0|1" || $2=="1|0" || $2=="1|1" {
-    count[$1]++
+/^#CHROM/{
+  for(i=10;i<=NF;i++) sample[i]=$i
+  next
+}
+!/^#/{
+  for(i=10;i<=NF;i++){
+    gt=$i
+    split(gt,a,":")
+    if(a[1]=="0/1" || a[1]=="1/0" || a[1]=="1/1" || a[1]=="0|1" || a[1]=="1|0" || a[1]=="1|1"){
+      count[sample[i]]++
+    }
+  }
 }
 END{
-    print "Sample","Private_SNVs"
-    for(s in count)
-        print s,count[s]
-}' > private_snv_counts.tsv
+  for(s in count) print s, count[s]
+}' private_snps.only_chr1-10.vcf> private_snps_counts_ch1-10.tsv
 ```
+now, for genome size estimation, i use all the read with depth between 40-100 and only primary reads with mapq of 20 from chromosome 1-10 only.
+```
+#!/bin/bash
+#SBATCH --job-name=array_minimap
+#SBATCH --partition=batch
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --time=10:00:00
+#SBATCH --mem=200G
+#SBATCH --array=1-8
+#SBATCH --output=%x.%A_%a.out
+#SBATCH --error=%x.%A_%a.err
+#SBATCH --mail-user=ak18787@uga.edu
+#SBATCH --mail-type=END,FAIL
+
+# 1. Pull the name directly from your list
+file=$(sed -n "${SLURM_ARRAY_TASK_ID}p" all.lst)
+
+# ---- 1) activate conda ----
+conda activate samtools
+
+
+
+samtools depth \
+    -@ "$SLURM_CPUS_PER_TASK" \
+    -d 0 \
+    -b J702_chr1_chr10.bed \
+    "${file}.sorted.primary_mapq20.bam" |
+awk '$3 > 40 && $3 < 100 {callable++}
+     END {
+         print "Callable genome size:", callable+0
+     }' \
+> "${file}.chr1_chr10.DP41_99.callable_size.txt"
+```
+This gives following genome size and mutation
+Ind	 SNVs	Gen	genome_size	Mutation
+	 (unique)			rate
+B73D1	3437	33	2060981176	5.05E-08
+B73D2	3565	33	2113955231	5.11E-08
+B73D7c	3526	33	2084179119	5.13E-08
+B73D10	3360	33	2107497801	4.83E-08
+B73D4	3733	33	2121867275	5.33E-08
+
+Now, same method can be used for indels too
