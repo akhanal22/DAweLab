@@ -49,7 +49,7 @@ while IFS=$'\t' read -r sample input extra || [[ -n "${sample:-}" ]]; do
     bcftools reheader -s "$namefile" -o "$renamed" "$input"
 
     output="$outdir/normalized/$sample.syri.norm.vcf.gz"
-    # Keep originally biallelic SNPs and sequence-level indels; structural
+    # Keep originally  SNPs and sequence-level indels; structural
     # types such as INV and NOTAL are not used for exact DV matching.
     # Rely on bcftools variant typing here; a previous REF/ALT regex filter
     # rejected all records with some bcftools builds.
