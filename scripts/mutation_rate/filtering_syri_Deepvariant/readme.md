@@ -1,1 +1,1 @@
-This folder contains script used for snp and indels filtering based on deep variant and syri and anchorwave. Each step is done one by one and named accordingly.
+This folder contains script used for snp and indels filtering based on deep variant and syri and anchorwave. Each step is done one by one and named accordingly.The scirpt are numebred accordingly for filtering criteria step by step. Meaning, step 1 is done first and then step 2 followed by 3 ,4 and 5. Pyhton script are saved in separate folder 
