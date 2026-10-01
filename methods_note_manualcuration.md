@@ -420,4 +420,181 @@ samtools faidx "$OUT"
 # clean up
 rm keep.list
 ```
+After everything is done, i looked at telomere for each individual and eveyrtime for chr2, telomere was found in 1mb of chromosome 2 and not beginning. since, B73V5 reference was use to scaffold J702, i found that B73V5 reference has telomere oriented like that where for chr2 the telomere starts at 1mb. When i checked the agp file before flipping J702, there is actually one contig exactly on chromosome 2 where the orientation is like this ragtag.scaffold.agp
+chr2_RagTag     1       1010498 1       W       ptg000081l      1       1010498 +
+chr2_RagTag     1010499 1010598 2       U       100     scaffold        yes     align_genus
+chr2_RagTag     1010599 196563056       3       W       ptg000008lb:5377841-200930298   1       195552458       +
+chr2_RagTag     196563057       196563156       4       U       100     scaffold        yes     align_genus
+chr2_RagTag     196563157       196842209       5       W       ptg000035l      1       279053  +
+chr2_RagTag     196842210       196842309       6       U       100     scaffold        yes     align_genus
+chr2_RagTag     196842310       244670983       7       W       ptg000016lb:23700223-71528896   1       47828674        +
+Now, I basically switched the orientation myself with ragtag.flip.agp
+chr2_RagTag     1       1010498 1       W       ptg000081l      1       1010498 -
+chr2_RagTag     1010499 1010598 2       U       100     scaffold        yes     align_genus
+chr2_RagTag     1010599 196563056       3       W       ptg000008lb:5377841-200930298   1       195552458       +
+chr2_RagTag     196563057       196563156       4       U       100     scaffold        yes     align_genus
+chr2_RagTag     196563157       196842209       5       W       ptg000035l      1       279053  +
+chr2_RagTag     196842210       196842309       6       U       100     scaffold        yes     align_genus
+chr2_RagTag     196842310       244670983       7       W       ptg000016lb:23700223-71528896   1       47828674        +
 
+I did re scaffolding, but it reorient the contig as the chromosome is organized like that in b73v5. Thus, i just manually switched the sequence by myself using following python code(I have uploaded python code in the folder too 
+```
+python - <<'PY'
+from pathlib import Path
+
+source = Path("ragtag.scaffold.fasta")
+output = Path("J702_flip.fa")
+target = "chr2_RagTag"
+flip_length = 1010498
+
+complement = str.maketrans(
+    "ACGTRYMKBDHVNacgtrymkbdhvn",
+    "TGCAYRKMVHDBNtgcayrkmvhdbn"
+)
+
+# Verify the chromosome before creating output.
+with source.open() as f:
+    matches = sum(
+        line.startswith(">") and line[1:].split()[0] == target
+        for line in f
+    )
+if matches != 1:
+    raise SystemExit(f"Expected exactly one {target}; found {matches}.")
+if output.exists():
+    raise SystemExit(f"{output} already exists; choose a new output filename.")
+
+def write_flipped(lines, out):
+    seq = "".join(line.strip() for line in lines)
+    if len(seq) < flip_length:
+        raise ValueError("Chromosome is shorter than the requested segment.")
+
+    seq = seq[:flip_length].translate(complement)[::-1] + seq[flip_length:]
+
+    # Preserve the original sequence line lengths.
+    offset = 0
+    for line in lines:
+        width = len(line.strip())
+        out.write(seq[offset:offset + width] + "\n")
+        offset += width
+
+with source.open() as inp, output.open("w") as out:
+    collecting = False
+    chr2_lines = []
+
+    for line in inp:
+        if line.startswith(">"):
+            if collecting:
+                write_flipped(chr2_lines, out)
+                chr2_lines = []
+            collecting = line[1:].split()[0] == target
+            out.write(line)
+        elif collecting:
+            chr2_lines.append(line)
+        else:
+            out.write(line)
+
+    if collecting:
+        write_flipped(chr2_lines, out)
+
+print(f"Created {output}: flipped {target}:1-{flip_length}")
+PY
+
+samtools faidx J702_flip.fa
+```
+After flipping the chromosome and making sure telomere is in the beginning, I did rescaffolding for other individual as follows(02-scaffolding_modified.sh)
+```
+#!/bin/bash
+#SBATCH --job-name=d10
+#SBATCH --partition=batch
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --time=72:00:00
+#SBATCH --mem=500G
+#SBATCH --array=1-5
+#SBATCH --output=%x.%A_%a.out
+#SBATCH --error=%x.%A_%a.err
+#SBATCH --mail-user=ak18787@uga.edu
+#SBATCH --mail-type=END,FAIL
+
+source ~/ENTER/etc/profile.d/conda.sh
+conda activate base
+
+set -euo pipefail
+
+# sample name
+file=$(sed -n "${SLURM_ARRAY_TASK_ID}p" modified.lst | tr -d '\r' | xargs)
+[[ -n "$file" ]] || { echo "ERROR: empty sample name for task $SLURM_ARRAY_TASK_ID"; exit 1; }
+
+# output directory
+outdir="${file}_v3_modified_ragtag_re_after_telomere_rearrangement"
+mkdir -p "$outdir"
+
+# run ragtag
+ragtag.py scaffold J702_v3_modified_ragtag_re/J702_flip.fa raw_genome/${file}_v3.contig_modified.fa -o "$outdir"
+```
+For D2 and D7B, since i had additional manual curation in earlier step, I did scaffolding separately since file names were different. 
+02-scaffolding_modified_re_d2.sh
+```
+
+#!/bin/bash
+#SBATCH --job-name=d7b_scaffold
+#SBATCH --partition=batch
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --time=72:00:00
+#SBATCH --mem=500G
+#SBATCH --output=%x.%A_%a.out
+#SBATCH --error=%x.%A_%a.err
+#SBATCH --mail-user=ak18787@uga.edu
+#SBATCH --mail-type=END,FAIL
+
+
+#load required module
+module load RagTag/2.1.0-foss-2022a
+
+set -euo pipefail
+
+# sample name
+#file=$(sed -n "${SLURM_ARRAY_TASK_ID}p" d10.lst | tr -d '\r' | xargs)
+#[[ -n "$file" ]] || { echo "ERROR: empty sample name for task $SLURM_ARRAY_TASK_ID"; exit 1; }
+
+# output directory
+outdir="B73D2_v3_modified_ragtag_re_v2_after_telomere_rearrangement"
+mkdir -p "$outdir"
+
+# run ragtag
+ragtag.py scaffold J702_v3_modified_ragtag_re/J702_flip.fa raw_genome/B73D2_v3.contig_modified_re_v2.fa -o "$outdir"
+```
+02-scaffolding_modified_re_d7b.sh
+D7B
+```
+#!/bin/bash
+#SBATCH --job-name=d7b_scaffold
+#SBATCH --partition=batch
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --time=72:00:00
+#SBATCH --mem=200G
+#SBATCH --output=%x.%A_%a.out
+#SBATCH --error=%x.%A_%a.err
+#SBATCH --mail-user=ak18787@uga.edu
+#SBATCH --mail-type=END,FAIL
+
+
+#load required module
+module load RagTag/2.1.0-foss-2022a
+
+set -euo pipefail
+
+# sample name
+#file=$(sed -n "${SLURM_ARRAY_TASK_ID}p" d10.lst | tr -d '\r' | xargs)
+#[[ -n "$file" ]] || { echo "ERROR: empty sample name for task $SLURM_ARRAY_TASK_ID"; exit 1; }
+
+# output directory
+outdir="B73D7B_v3_modified_ragtag_re_v2_after_telomere_rearrangement"
+mkdir -p "$outdir"
+
+# run ragtag
+ragtag.py scaffold J702_v3_modified_ragtag_re/J702_flip.fa raw_genome/B73D7B_v3.contig_modified_re.fa -o "$outdir"
+
+```
