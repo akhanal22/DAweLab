@@ -1,0 +1,10 @@
+{
+  "intact_LTR_elements": 58489,
+  "validated_deletions": 174,
+  "deletions_overlapping_intact_LTR_elements": 22,
+  "candidate_pairs_by_tier": {
+    "paired_LTR_breakpoints": 6,
+    "within_100bp": 1
+  },
+  "strict_unique_deletions": 6
+}
