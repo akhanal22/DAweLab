@@ -12,7 +12,7 @@
 
 # Usage: from the project directory, bash estimate_callable_from_gvcf.sh
 # Callable genome for biallelic SNP analysis on chr1_RagTag..chr10_RagTag.
-# Requires Python 3, samtools, and bedtools. No 500 kb or repeat mask is app
+# Requires Python 3, samtools, and bedtools. 
 # Run without arguments from the directory containing deepvariant_against_J702.
 # The 4-argument form below is used internally for one sample.
 
