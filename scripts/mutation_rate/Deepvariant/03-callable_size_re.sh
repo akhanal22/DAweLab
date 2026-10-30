@@ -13,7 +13,7 @@
 # Run: sbatch estimate_callable_snps_indels.sh
 # Run from the directory containing deepvariant_against_J702.
 # Produces a confidence/depth-based reference-position mask, not an
-# indel-size-specific sensitivity estimate. No repeat or 500-kb mask is applied.
+# indel-size-specific sensitivity estimate. 
 # SNPs and indels each contribute their single reference anchor position.
 # Confident reference calls and qualifying heterozygous calls remain included.
 REFERENCE="/scratch/ak18787/B73_project/J702_v3_modified_ragtag_re/J702_flip.fa"
