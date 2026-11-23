@@ -69,7 +69,6 @@ ALL = ['SNVs'] + CLASSES
 COLOR = {'Knob180': '#8c510a', 'Shuffled knob180': '#dfc27d',
          'Centromere': '#444444', 'Shuffled centromere': '#b0b0b0',
          'Intergenic': '#5f7a95', 'Shuffled intergenic': '#c3cfdb'}
-NULL_LABEL = lambda r, N: f'Shuffled {r} ({N:,}×)'   # legend text for null bars
 EXTRA = {'Knob180': ['-noOverlapping'], 'Centromere': ['-noOverlapping'],
          'Intergenic': ['-noOverlapping', '-maxTries', '10000']}
 
@@ -202,7 +201,7 @@ def draw_group(ax, x0, res, idf, cls, metric, N, label_fmt, star_col=None):
             ax.scatter(x + np.linspace(-.04, .04, 5)[ok], dots[ok], s=6, color='#1a1a1a',
                        edgecolors='white', linewidths=0.2, zorder=5)
             top = max(top, dots[ok].max())
-        star = '*' if (star_col and r in REAL and row[star_col] < 0.05) else ''
+        star = '*' if (star_col and not r.startswith('Shuffled') and row[star_col] < 0.05) else ''
         xs[r], tops[r] = x, top
         txt[r] = ax.text(x, top, label_fmt(y) + star, ha='center', va='bottom', rotation=90, fontsize=6.5, zorder=10)
     return xs, tops, txt
@@ -232,9 +231,7 @@ def finish_brackets(fig, ax, groups, res, pcol, N, ymax):
         lt = {r: inv.transform((0, tx.get_window_extent().y1))[1] for r, tx in txt.items()}
         for r in REAL:
             p = res[(res.category == cls) & (res.region == SHUF[r])].iloc[0][pcol]
-            thr = 1 / (N + 1)
-            ptxt = (f'p < {thr:.3f}' if thr >= 5e-4 else f'p < {thr:.0e}') if p <= thr + 1e-12 \
-                else (f'p = {p:.3f}' if p >= 1e-3 else f'p = {p:.1e}')
+            ptxt = f'p < {1/(N+1):.3f}' if p <= 1 / (N + 1) + 1e-12 else f'p = {p:.3f}'
             yb = max(lt[r], lt[SHUF[r]]) + ylim * 0.025
             x1, x2 = xs[r], xs[SHUF[r]]
             ax.plot([x1, x1, x2, x2], [yb - ylim * .012, yb, yb, yb - ylim * .012], color='#202020', lw=0.7)
@@ -246,8 +243,8 @@ def legend(ax, N, knob_mb, ncol=4, fs=7):
     handles = [Patch(facecolor=COLOR[r], edgecolor='none') for r in REGIONS] + [
         Line2D([], [], marker='o', ls='none', ms=3, mfc='#1a1a1a', mec='white', mew=0.2),
         Line2D([], [], color='#202020', lw=0.8, marker='_', ms=5)]
-    names = [f'Knob180 chr7+8 ({knob_mb:.1f} Mb)', NULL_LABEL('knob180', N), 'Centromere (tentative)',
-             NULL_LABEL('centromere', N), 'Intergenic', NULL_LABEL('intergenic', N), 'MA line', '95% CI']
+    names = [f'Knob180 chr7+8 ({knob_mb:.1f} Mb)', f'Shuffled knob180 ({N:,}×)', 'Centromere (tentative)',
+             f'Shuffled centromere ({N:,}×)', 'Intergenic', f'Shuffled intergenic ({N:,}×)', 'MA line', '95% CI']
     ax.legend(handles, names, loc='upper left', ncol=ncol, frameon=False, fontsize=fs, handlelength=1.0,
               handletextpad=0.35, columnspacing=0.7, bbox_to_anchor=(0.01, 1.0), borderaxespad=0)
 
@@ -300,8 +297,8 @@ def plot_density(res, idf, N, knob_mb, root, prefix):
     handles = [Patch(facecolor=COLOR[r], edgecolor='none') for r in REGIONS] + [
         Line2D([], [], marker='o', ls='none', ms=3, mfc='#1a1a1a', mec='white', mew=0.2),
         Line2D([], [], color='#202020', lw=0.8, marker='_', ms=5)]
-    labels = [f'Knob180 chr7+8 ({knob_mb:.1f} Mb)', NULL_LABEL('knob180', N), 'Centromere (tentative)',
-              NULL_LABEL('centromere', N), 'Intergenic', NULL_LABEL('intergenic', N), 'MA line', '95% CI']
+    labels = [f'Knob180 chr7+8 ({knob_mb:.1f} Mb)', f'Shuffled knob180 ({N:,}×)', 'Centromere (tentative)',
+              f'Shuffled centromere ({N:,}×)', 'Intergenic', f'Shuffled intergenic ({N:,}×)', 'MA line', '95% CI']
     fig.legend(handles, labels, loc='lower center', ncol=8, frameon=False, fontsize=7.5,
                handlelength=1.0, handletextpad=0.35, columnspacing=0.9, bbox_to_anchor=(0.5, -0.01))
     fig.tight_layout(rect=[0, 0.06, 1, 1], pad=0.4)

@@ -1,0 +1,78 @@
+Manuscript text for figure j702_region_perline_badbin_knob_genomewide_pieces1Mb.density.{png,pdf,svg}
+Script : knob180_region_density.py   (standalone; reproduces the figure exactly)
+Run    : sbatch run_knob180_region_density.sh
+Tables : j702_region_perline_badbin_knob_genomewide_pieces1Mb.density.tsv / .density_per_line.tsv /
+         .density_null.tsv
+(The figure was first produced by 09-region_enrichment_perline_badbin_knob.py --genome-wide
+ --knob-piece-mb 1, job 50507768; the clean script gives identical densities and p-values.)
+=====================================================================================================
+
+METHODS
+Mutation density in knob180, centromeric and intergenic regions
+
+We compared the density of private SNVs (n = 17,115), indels of 1-50 bp (n = 4,854) and
+read-validated SVs >50 bp (n = 523; 349 insertions and 174 deletions) in three regions of the J702
+assembly (chromosomes 1-10) with the density in randomly shuffled regions of the same size. All
+analyses were performed separately for each of the five MA lines, using that line's own SyRI 500 kb
+bad bins (9.5-14.5 Mb per line) to define its knob180 blocks and to restrict its shuffles. These are the same bins used to filter the SyRI calls, so no
+validated SV lay in its own line's bad bins, and no mutations were removed.
+
+Knob180 regions were built for each line from EDTA knob180 annotations on chromosomes 7 and 8.
+Annotations overlapping that line's bad bins or an AGP gap were discarded, and the remaining
+annotations <= 100 kb apart were merged into blocks, without merging across a bad bin or gap. This
+gave 27-28 blocks (49.2-50.2 Mb) per line. Centromeres were the ten tentative J702 centromere spans
+(17.9 Mb), identical for all lines. Intergenic sequence was the remainder of chromosomes 1-10 after
+removing AGP gaps, centromeres, that line's knob180 blocks and Liftoff-annotated genes (~1,951 Mb
+per line).
+
+To avoid a length bias, in which a multi-kb deletion is more likely than a point mutation to
+overlap a region, each mutation was represented by its midpoint. SNVs and insertions were placed at
+their position, and deletions at the midpoint of the deleted sequence. Each midpoint was assigned to
+one region of its own line in the priority order centromere > knob180 > genic > intergenic.
+
+Expected densities were obtained from 1,000 random shuffles of each region with bedtools shuffle
+v2.31.1 (-noOverlapping), performed separately for each line. Every interval could be placed
+anywhere on chromosomes 1-10 except that line's bad bins and AGP gaps, and all three regions were
+shuffled with the same criteria. Before shuffling, knob180 blocks were cut into consecutive pieces
+of <= 1 Mb (74-75 pieces per line, same total length), which prevented very large blocks from being
+systematically excluded from chromosome ends. Intergenic intervals were supplied largest-first, with
+-maxTries 10000, so that all intervals could be placed; all intervals were placed in every shuffle.
+Mutations in a shuffled knob180 region were counted only if they did not fall in a real centromere,
+matching the rule for the real knob180. Only a line's own mutations were counted against its real
+and shuffled regions.
+
+Density was calculated as mutations per Mb per MA line: the total number of mutations in the region
+across the five lines divided by the region size summed over the five lines. Expected density was
+the mean density across the 1,000 shuffles. Observed and shuffled densities were compared with a
+two-sided empirical permutation test, p = (1 + #{|x_k - m| >= |x_obs - m|}) / (N + 1), where x_obs
+is the observed density, x_k is the density in shuffle k, and m is the mean of the N = 1,000
+shuffled densities. The smallest attainable p is 1/1,001, reported as p < 0.001.
+
+For graphical representation, pooled observed and shuffled densities were displayed as bars.
+Densities were also calculated independently for each of the five MA lines, with individual
+estimates represented as dots. Error bars indicate 95% confidence intervals around the mean of the
+five line-level estimates, calculated using Student's t-distribution. Analyses used Python 3.10
+(NumPy, pandas, SciPy, Matplotlib) and bedtools v2.31.1.
+
+
+RESULTS
+SNVs and indels were depleted in knob180 arrays (0.76 vs 1.55 SNVs per Mb and 0.10 vs 0.44 indels
+per Mb; both p < 0.001). Validated SVs were enriched about 2.2-fold (0.104 vs 0.047 SVs per Mb;
+p = 0.002). Centromeric densities did not differ from shuffled centromeres (SNVs 1.79 vs 1.56,
+p = 0.106; indels 0.32 vs 0.44, p = 0.164; SVs 0.078 vs 0.047, p = 0.279). In intergenic sequence,
+SNVs (1.65 vs 1.55) and indels (0.456 vs 0.441) were slightly higher than shuffled, and SVs lower
+(0.037 vs 0.048; all p < 0.001).
+
+
+FIGURE LEGEND
+Density of private mutations in J702 knob180 arrays, centromeres and intergenic sequence compared
+with randomly shuffled regions. Panels show (left) SNVs (n = 17,115), (middle) indels of 1-50 bp
+(n = 4,854) and (right) read-validated SVs >50 bp (n = 523), as mutations per Mb per MA line. Dark
+bars show the observed density in the chromosome 7 and 8 knob180 arrays, the tentative centromeres
+and intergenic sequence. Light bars show the mean density in the same regions after 1,000 random
+genome-wide shuffles with bedtools shuffle, which excluded each line's bad bins and assembly gaps;
+knob180 blocks were shuffled as <= 1 Mb pieces. Knob180 blocks and shuffles were defined separately for
+each MA line, and each mutation is counted at its midpoint. Densities are total mutations divided by region size
+summed over the five lines. Dots, individual MA lines; error bars, 95% t-based confidence intervals
+of the line mean. Numbers above bars give the density. Brackets, two-sided empirical permutation
+test, observed vs shuffled (1,000 shuffles).
